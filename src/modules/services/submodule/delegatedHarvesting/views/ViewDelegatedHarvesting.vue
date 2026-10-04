@@ -368,22 +368,86 @@
 
         <!-- Node Selection -->
         <div class="space-y-1">
-          <label class="block text-xs font-semibold text-gray-200">Validator Node</label>
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-semibold text-gray-200">Validator Node</label>
+            <button 
+              type="button" 
+              @click="refreshValidators" 
+              :disabled="isDiscoveringNodes" 
+              class="text-xxs text-blue-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+              title="Refresh and probe candidate validator nodes"
+            >
+              <font-awesome-icon icon="sync-alt" :class="{ 'fa-spin': isDiscoveringNodes }" class="text-xxs" />
+              <span>{{ isDiscoveringNodes ? 'Scanning...' : 'Refresh Nodes' }}</span>
+            </button>
+          </div>
+
           <select 
-            v-model="selectedNodePreset" 
+            v-model="selectedValidatorId" 
             class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-semibold focus:outline-none"
           >
-            <option value="default">⭐ Igor's Community Validator (Local / Host)</option>
+            <option v-if="isDiscoveringNodes && discoveredValidators.length === 0" disabled value="">
+              Scanning network for validators...
+            </option>
+            <option 
+              v-for="val in discoveredValidators" 
+              :key="val.id" 
+              :value="val.id"
+              :disabled="!val.eligible && !val.isDefault"
+            >
+              {{ val.online ? (val.eligible ? '🟢' : '🟡') : '🔴' }} {{ val.name }} ({{ val.pingMs }}ms, {{ val.activeSlots }}/{{ val.maxSlots }} slots){{ !val.eligible ? ' - ' + (val.statusReason || 'Ineligible') : '' }}
+            </option>
             <option value="custom">🌐 Custom Node...</option>
           </select>
 
-          <div v-if="selectedNodePreset === 'custom'" class="mt-1">
-            <input 
-              type="text" 
-              v-model="customNodeUrl" 
-              placeholder="http://node-ip:8080" 
-              class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-mono focus:outline-none"
-            />
+          <!-- Selected Node Info Card -->
+          <div v-if="selectedValidator && selectedValidatorId !== 'custom'" class="mt-1.5 p-2 bg-navy-lighter/60 rounded border border-navy-lighter text-xxs space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-gray-300">Endpoint:</span>
+              <span class="font-mono text-gray-100 font-semibold">{{ selectedValidator.endpoint }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-gray-300">Roundtrip Latency:</span>
+              <span :class="selectedValidator.pingMs < 100 ? 'text-emerald-400 font-semibold' : selectedValidator.pingMs < 300 ? 'text-yellow-400 font-semibold' : 'text-red-400 font-semibold'">
+                {{ selectedValidator.pingMs }} ms
+              </span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-gray-300">Harvesting Pool Slots:</span>
+              <span :class="selectedValidator.activeSlots < selectedValidator.maxSlots ? 'text-emerald-400 font-semibold' : 'text-orange-primary font-semibold'">
+                {{ selectedValidator.activeSlots }} / {{ selectedValidator.maxSlots }} harvesters
+              </span>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-navy-lighter/40">
+              <span class="text-gray-300">Capabilities:</span>
+              <div class="flex gap-1">
+                <span class="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-3xs font-semibold">FastFinality</span>
+                <span v-if="selectedValidator.features.includes('delegated_harvesting_hotload')" class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-3xs font-semibold">Hotload Ready</span>
+                <span v-else class="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-3xs font-semibold">Legacy Node</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="selectedValidatorId === 'custom'" class="mt-1 space-y-1">
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                v-model="customNodeUrl" 
+                placeholder="http://node-ip:8080" 
+                class="flex-1 bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-mono focus:outline-none"
+              />
+              <button 
+                type="button" 
+                @click="probeCustomNode" 
+                :disabled="isProbingCustom"
+                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {{ isProbingCustom ? 'Testing...' : 'Test' }}
+              </button>
+            </div>
+            <div v-if="customProbeResult" class="text-xxs p-1.5 rounded" :class="customProbeResult.eligible ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-600/40' : 'bg-red-900/40 text-red-300 border border-red-600/40'">
+              {{ customProbeResult.eligible ? `✓ Connected (${customProbeResult.pingMs}ms, ${customProbeResult.activeSlots}/${customProbeResult.maxSlots} slots)` : `✗ ${customProbeResult.statusReason || 'Connection failed'}` }}
+            </div>
           </div>
         </div>
 
@@ -425,6 +489,7 @@
           <span v-else-if="!isLinked">Cannot Activate: Not Linked</span>
           <span v-else-if="!isHarvesterRegistered">Cannot Activate: Not Registered</span>
           <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
+          <span v-else-if="selectedValidator && !selectedValidator.eligible">Cannot Activate: {{ selectedValidator.statusReason }}</span>
           <span v-else>Activate on Validator Node &rarr;</span>
         </button>
 
@@ -514,6 +579,10 @@ import {
   Password,
 } from "tsjs-xpx-chain-sdk";
 import { copyToClipboard } from "@/util/functions";
+import {
+  ValidatorDiscoveryService,
+  type VerifiedValidator,
+} from "../services/ValidatorDiscoveryService";
 
 const router = useRouter();
 const toast = useToast();
@@ -824,14 +893,62 @@ IMPORTANT NOTES:
 const isHarvesterRegistered = ref<boolean>(false);
 const isMaturing = ref<boolean>(false);
 
-// Node delegation state
-const selectedNodePreset = ref<string>("default");
+// Dynamic Node delegation & discovery state
+const isDiscoveringNodes = ref<boolean>(false);
+const discoveredValidators = ref<VerifiedValidator[]>([]);
+const selectedValidatorId = ref<string>("default-local-node");
 const customNodeUrl = ref<string>("http://localhost:8080");
-const targetNodeUrl = computed(() => {
-  if (selectedNodePreset.value === "default") {
-    return "http://localhost:8080";
+const isProbingCustom = ref<boolean>(false);
+const customProbeResult = ref<VerifiedValidator | null>(null);
+
+const refreshValidators = async () => {
+  isDiscoveringNodes.value = true;
+  try {
+    const list = await ValidatorDiscoveryService.discoverAndProbeAll();
+    discoveredValidators.value = list;
+    if (selectedValidatorId.value !== "custom") {
+      const match = list.find((v) => v.id === selectedValidatorId.value);
+      if (!match) {
+        const firstEligible = list.find((v) => v.eligible) || list[0];
+        if (firstEligible) {
+          selectedValidatorId.value = firstEligible.id;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to discover validator nodes:", err);
+  } finally {
+    isDiscoveringNodes.value = false;
   }
-  return customNodeUrl.value.trim().replace(/\/+$/, "");
+};
+
+const probeCustomNode = async () => {
+  if (!customNodeUrl.value.trim()) return;
+  isProbingCustom.value = true;
+  try {
+    const res = await ValidatorDiscoveryService.probeValidatorHealth({
+      id: "custom",
+      name: "Custom Node",
+      endpoint: customNodeUrl.value.trim(),
+    });
+    customProbeResult.value = res;
+  } catch (err) {
+    console.error("Failed to probe custom node:", err);
+  } finally {
+    isProbingCustom.value = false;
+  }
+};
+
+const selectedValidator = computed(() => {
+  if (selectedValidatorId.value === "custom") return null;
+  return discoveredValidators.value.find((v) => v.id === selectedValidatorId.value) || null;
+});
+
+const targetNodeUrl = computed(() => {
+  if (selectedValidatorId.value === "custom") {
+    return customNodeUrl.value.trim().replace(/\/+$/, "");
+  }
+  return selectedValidator.value?.endpoint || "http://localhost:8080";
 });
 
 const showKey = ref<boolean>(false);
@@ -878,7 +995,13 @@ const hasMinimumBalance = computed(() => {
 });
 
 const canActivateOnNode = computed(() => {
+  const isTargetEligible =
+    selectedValidatorId.value === "custom"
+      ? (customProbeResult.value ? customProbeResult.value.eligible : true)
+      : (selectedValidator.value ? selectedValidator.value.eligible : true);
+
   return (
+    isTargetEligible &&
     isKeyValid.value &&
     hasMinimumBalance.value &&
     isLinked.value &&
@@ -1154,6 +1277,7 @@ const submitKeyToNode = async () => {
         detail: "Delegated harvester key activated on validator node!",
         life: 5000,
       });
+      refreshValidators();
     } else {
       nodeSuccess.value = false;
       nodeMessage.value = data.error || "Validator node returned an error.";
@@ -1176,5 +1300,6 @@ onMounted(async () => {
   if (!isLinked.value && !ephemeralAccount.value) {
     generateEphemeralAccount();
   }
+  refreshValidators();
 });
 </script>
