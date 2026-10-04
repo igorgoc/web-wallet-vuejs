@@ -81,11 +81,11 @@
               </div>
             </div>
 
-            <!-- Private Key Backup Box -->
+            <!-- Private Key Backup Box (Only shown if key matches on-chain linkedRemotePubKey) -->
             <div v-if="activeOrSavedPrivateKey" class="p-3 bg-orange-light border border-orange-primary/30 rounded text-xs space-y-2">
               <div class="flex items-center justify-between">
                 <span class="font-bold text-orange-primary flex items-center gap-1">
-                  🔑 Remote Private Key (Save for Node Delegation)
+                  🔑 Remote Private Key (Verified)
                 </span>
                 <div class="flex items-center gap-1.5">
                   <button 
@@ -121,12 +121,38 @@
               </div>
 
               <p class="text-xxs text-gray-600">
-                ⚠️ <strong>Save this private key now.</strong> The blockchain only stores your public key. You will need this key whenever you connect to a validator node.
+                ✓ <strong>This private key is verified</strong> against your on-chain linked key. Keep it saved for node delegation.
               </p>
             </div>
 
-            <div v-else class="p-2.5 bg-gray-50 border border-gray-200 rounded text-xxs text-gray-600">
-              ℹ️ Private key not cached in this browser session. If you do not have it saved, click <strong>Unlink</strong> below to generate and link a new key pair.
+            <!-- If the private key is not yet restored in this browser session -->
+            <div v-else class="p-3 bg-amber-50 border border-amber-300 rounded text-xs space-y-2">
+              <div class="font-bold text-amber-900 flex items-center justify-between">
+                <span>🔑 Enter Your Saved Remote Private Key</span>
+              </div>
+              <p class="text-xxs text-amber-800">
+                This account was linked previously on-chain. Paste the 64-character remote private key you saved to restore it for this session:
+              </p>
+              <div class="relative">
+                <input 
+                  :type="showStep2PrivKey ? 'text' : 'password'" 
+                  v-model="restoredPrivateKeyInput" 
+                  placeholder="Paste your 64-character saved remote private key" 
+                  class="w-full bg-white border border-amber-300 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
+                />
+                <font-awesome-icon 
+                  :icon="showStep2PrivKey ? 'eye-slash' : 'eye'" 
+                  :title="showStep2PrivKey ? 'Hide Private Key' : 'Reveal Private Key'" 
+                  class="absolute right-3 top-2.5 text-amber-700 hover:text-amber-900 cursor-pointer text-xs" 
+                  @click="showStep2PrivKey = !showStep2PrivKey"
+                />
+              </div>
+              <div v-if="restoredKeyMismatch" class="text-xxs text-red-600 font-semibold">
+                ✗ Entered private key does not derive to the on-chain linked public key.
+              </div>
+              <p class="text-xxs text-gray-500 pt-1 border-t border-amber-200">
+                Lost your key? Click <strong>Unlink</strong> below to generate and link a new key pair.
+              </p>
             </div>
 
             <div class="flex items-center justify-between pt-0.5">
@@ -445,20 +471,73 @@ const ephemeralRemotePubKey = computed(() => ephemeralAccount.value?.publicKey |
 
 const showStep2PrivKey = ref<boolean>(false);
 
-const activeOrSavedPrivateKey = computed(() => {
-  if (remotePrivateKeyInput.value && isKeyValid.value) {
-    return remotePrivateKeyInput.value.trim();
+const isValidForLinkedKey = (privHex: string): boolean => {
+  if (!privHex || !/^[0-9a-fA-F]{64}$/.test(privHex)) return false;
+  if (!linkedRemotePubKey.value || linkedRemotePubKey.value === "0".repeat(64)) return false;
+  try {
+    const acc = Account.createFromPrivateKey(privHex, AppState.networkType || 184, 1);
+    return acc.publicKey.toUpperCase() === linkedRemotePubKey.value.toUpperCase();
+  } catch {
+    return false;
   }
-  if (selectedAddress.value) {
-    const saved = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
-    if (saved && /^[0-9a-fA-F]{64}$/.test(saved)) {
-      return saved;
+};
+
+const restoredPrivateKeyInput = ref<string>("");
+
+const restoredKeyMismatch = computed(() => {
+  const k = restoredPrivateKeyInput.value.trim();
+  if (!k) return false;
+  if (!/^[0-9a-fA-F]{64}$/.test(k)) return true;
+  return !isValidForLinkedKey(k);
+});
+
+watch(restoredPrivateKeyInput, (newVal) => {
+  const k = newVal.trim();
+  if (k && isValidForLinkedKey(k)) {
+    remotePrivateKeyInput.value = k;
+    if (selectedAddress.value) {
+      try {
+        localStorage.setItem("sirius_remote_key_" + selectedAddress.value, k);
+        if (linkedRemotePubKey.value) {
+          localStorage.setItem("sirius_remote_key_" + linkedRemotePubKey.value, k);
+        }
+      } catch {}
     }
+    toast.add({
+      severity: "success",
+      summary: "Key Restored",
+      detail: "Remote private key verified and saved for this session!",
+      group: "br-custom",
+      life: 3000,
+    });
   }
-  if (ephemeralAccount.value?.privateKey) {
-    return ephemeralAccount.value.privateKey;
+});
+
+const activeOrSavedPrivateKey = computed(() => {
+  if (isLinked.value) {
+    if (restoredPrivateKeyInput.value && isValidForLinkedKey(restoredPrivateKeyInput.value.trim())) {
+      return restoredPrivateKeyInput.value.trim();
+    }
+    if (remotePrivateKeyInput.value && isValidForLinkedKey(remotePrivateKeyInput.value.trim())) {
+      return remotePrivateKeyInput.value.trim();
+    }
+    if (selectedAddress.value) {
+      const savedByAddr = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
+      if (savedByAddr && isValidForLinkedKey(savedByAddr)) {
+        return savedByAddr;
+      }
+    }
+    if (linkedRemotePubKey.value) {
+      const savedByPub = localStorage.getItem("sirius_remote_key_" + linkedRemotePubKey.value);
+      if (savedByPub && isValidForLinkedKey(savedByPub)) {
+        return savedByPub;
+      }
+    }
+    // Never return an unverified random key when linked
+    return "";
   }
-  return "";
+
+  return ephemeralAccount.value?.privateKey || "";
 });
 
 const copyKey = (val: string) => {
@@ -545,6 +624,20 @@ const isKeyMatchingLinked = computed(() => {
   return derivedRemotePubKey.value.toUpperCase() === linkedRemotePubKey.value.toUpperCase();
 });
 
+watch(remotePrivateKeyInput, (newVal) => {
+  const k = newVal.trim();
+  if (isLinked.value && isValidForLinkedKey(k)) {
+    if (selectedAddress.value) {
+      try {
+        localStorage.setItem("sirius_remote_key_" + selectedAddress.value, k);
+        if (linkedRemotePubKey.value) {
+          localStorage.setItem("sirius_remote_key_" + linkedRemotePubKey.value, k);
+        }
+      } catch {}
+    }
+  }
+});
+
 const hasMinimumBalance = computed(() => {
   return accountBalance.value >= 100000;
 });
@@ -611,12 +704,35 @@ const refreshAccountDetails = async () => {
 
     // 2. Linked key
     linkedRemotePubKey.value = accInfo.linkedAccountKey || "";
-    if (selectedAddress.value) {
-      const savedKey = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
-      if (savedKey && /^[0-9a-fA-F]{64}$/.test(savedKey)) {
-        remotePrivateKeyInput.value = savedKey;
-      } else if (isLinked.value) {
+    if (isLinked.value) {
+      let matchedSavedKey = "";
+      if (selectedAddress.value) {
+        const savedByAddr = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
+        if (savedByAddr && isValidForLinkedKey(savedByAddr)) {
+          matchedSavedKey = savedByAddr;
+        }
+      }
+      if (!matchedSavedKey && linkedRemotePubKey.value) {
+        const savedByPub = localStorage.getItem("sirius_remote_key_" + linkedRemotePubKey.value);
+        if (savedByPub && isValidForLinkedKey(savedByPub)) {
+          matchedSavedKey = savedByPub;
+        }
+      }
+
+      if (matchedSavedKey) {
+        remotePrivateKeyInput.value = matchedSavedKey;
+        restoredPrivateKeyInput.value = matchedSavedKey;
+      } else if (!isValidForLinkedKey(remotePrivateKeyInput.value.trim())) {
         remotePrivateKeyInput.value = "";
+        restoredPrivateKeyInput.value = "";
+      }
+    } else {
+      restoredPrivateKeyInput.value = "";
+      if (!ephemeralAccount.value) {
+        generateEphemeralAccount();
+      }
+      if (ephemeralAccount.value) {
+        remotePrivateKeyInput.value = ephemeralAccount.value.privateKey;
       }
     }
 
