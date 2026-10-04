@@ -75,20 +75,70 @@
           </div>
 
           <!-- If already linked -->
-          <div v-if="isLinked" class="space-y-2">
+          <div v-if="isLinked" class="space-y-2.5">
             <div class="bg-gray-50 border border-gray-200 p-2.5 rounded-lg text-xs">
-              <span class="text-gray-500 block text-xxs uppercase font-semibold">Linked Public Key</span>
+              <span class="text-gray-500 block text-xxs uppercase font-semibold">Linked Remote Public Key (On-Chain)</span>
               <div class="font-mono text-xs break-all text-gray-800 font-semibold mt-0.5">
                 {{ linkedRemotePubKey }}
               </div>
             </div>
+
+            <!-- Private Key Backup Box -->
+            <div v-if="activeOrSavedPrivateKey" class="p-3 bg-amber-50/90 border border-amber-300 rounded-lg text-xs space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-amber-900 flex items-center gap-1">
+                  🔑 Remote Private Key (Save for Node Delegation)
+                </span>
+                <div class="flex items-center gap-1.5">
+                  <button 
+                    type="button" 
+                    @click="copyKey(activeOrSavedPrivateKey)" 
+                    class="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded text-xxs font-bold transition cursor-pointer"
+                  >
+                    Copy Key
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="downloadBackupFile" 
+                    class="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xxs font-bold transition cursor-pointer"
+                  >
+                    Download Backup (.txt)
+                  </button>
+                </div>
+              </div>
+
+              <div class="relative">
+                <input 
+                  :type="showStep2PrivKey ? 'text' : 'password'" 
+                  readonly 
+                  :value="activeOrSavedPrivateKey" 
+                  class="w-full bg-white border border-amber-200 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
+                />
+                <button 
+                  type="button" 
+                  @click="showStep2PrivKey = !showStep2PrivKey" 
+                  class="absolute right-2 top-1.5 text-amber-800 hover:text-amber-950 text-xxs font-semibold cursor-pointer"
+                >
+                  {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
+                </button>
+              </div>
+
+              <p class="text-xxs text-amber-800">
+                ⚠️ <strong>Save this private key now.</strong> The blockchain only stores your public key. You will need this key whenever you connect to a validator node.
+              </p>
+            </div>
+
+            <div v-else class="p-2.5 bg-gray-50 border border-gray-200 rounded text-xxs text-gray-600">
+              ℹ️ Private key not cached in this browser session. If you do not have it saved, click <strong>Unlink</strong> below to generate and link a new key pair.
+            </div>
+
             <div class="flex items-center justify-between pt-0.5">
               <span class="text-xs text-green-600 font-semibold">
                 &check; Linked on Sirius Mainnet
               </span>
               <button 
                 @click="broadcastUnlink" 
-                class="text-xs text-red-500 hover:text-red-700 font-semibold hover:underline"
+                class="text-xs text-red-500 hover:text-red-700 font-semibold hover:underline cursor-pointer"
               >
                 Unlink
               </button>
@@ -97,12 +147,55 @@
 
           <!-- If not linked -->
           <div v-else class="space-y-2.5">
-            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-xs">
-              <span class="text-blue-700 font-semibold block mb-0.5">Generated Remote Public Key:</span>
-              <div class="font-mono text-xs break-all text-blue-900 font-semibold">
-                {{ ephemeralRemotePubKey }}
+            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-xs space-y-2">
+              <div>
+                <span class="text-blue-700 font-semibold block text-xxs uppercase">Generated Remote Public Key (On-Chain)</span>
+                <div class="font-mono text-xs break-all text-blue-900 font-semibold mt-0.5">
+                  {{ ephemeralRemotePubKey }}
+                </div>
+              </div>
+
+              <div class="pt-2 border-t border-blue-200">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-blue-700 font-semibold text-xxs uppercase">Remote Private Key (Required for Step 4)</span>
+                  <div class="flex items-center gap-1.5">
+                    <button 
+                      type="button" 
+                      @click="copyKey(ephemeralAccount?.privateKey || '')" 
+                      class="text-xxs text-blue-800 hover:underline font-bold cursor-pointer"
+                    >
+                      Copy
+                    </button>
+                    <button 
+                      type="button" 
+                      @click="downloadBackupFile" 
+                      class="text-xxs text-blue-800 hover:underline font-bold cursor-pointer"
+                    >
+                      Download (.txt)
+                    </button>
+                  </div>
+                </div>
+                <div class="relative">
+                  <input 
+                    :type="showStep2PrivKey ? 'text' : 'password'" 
+                    readonly 
+                    :value="ephemeralAccount?.privateKey" 
+                    class="w-full bg-white border border-blue-200 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
+                  />
+                  <button 
+                    type="button" 
+                    @click="showStep2PrivKey = !showStep2PrivKey" 
+                    class="absolute right-2 top-1.5 text-blue-700 hover:text-blue-900 text-xxs font-semibold cursor-pointer"
+                  >
+                    {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
+                  </button>
+                </div>
+                <span class="text-xxs text-blue-600 block mt-1">
+                  Save this key before linking. You will submit it in Step 4.
+                </span>
               </div>
             </div>
+
             <button 
               @click="broadcastLink" 
               class="w-full blue-btn py-2 text-xs font-semibold text-white rounded-lg shadow-sm"
@@ -309,6 +402,7 @@ import {
   LinkAction,
   PublicAccount,
 } from "tsjs-xpx-chain-sdk";
+import { copyToClipboard } from "@/util/functions";
 
 const router = useRouter();
 const toast = useToast();
@@ -326,6 +420,68 @@ const isLinked = computed(() => {
 
 const ephemeralAccount = ref<Account | null>(null);
 const ephemeralRemotePubKey = computed(() => ephemeralAccount.value?.publicKey || "");
+
+const showStep2PrivKey = ref<boolean>(false);
+
+const activeOrSavedPrivateKey = computed(() => {
+  if (remotePrivateKeyInput.value && isKeyValid.value) {
+    return remotePrivateKeyInput.value.trim();
+  }
+  if (selectedAddress.value) {
+    const saved = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
+    if (saved && /^[0-9a-fA-F]{64}$/.test(saved)) {
+      return saved;
+    }
+  }
+  if (ephemeralAccount.value?.privateKey) {
+    return ephemeralAccount.value.privateKey;
+  }
+  return "";
+});
+
+const copyKey = (val: string) => {
+  if (!val) return;
+  copyToClipboard(val);
+  toast.add({
+    severity: "info",
+    summary: "Copied",
+    detail: "Remote private key copied to clipboard!",
+    group: "br-custom",
+    life: 3000,
+  });
+};
+
+const downloadBackupFile = () => {
+  const priv = activeOrSavedPrivateKey.value;
+  if (!priv) return;
+  const content = `=== Sirius Delegated Harvester Key Backup ===
+Generated: ${new Date().toISOString()}
+Owner Account Address: ${selectedAddress.value}
+Linked Remote Public Key: ${linkedRemotePubKey.value || ephemeralRemotePubKey.value}
+Remote Private Key: ${priv}
+
+IMPORTANT NOTES:
+1. This remote key pair contains 0 XPX funds.
+2. It is exclusively used by your chosen Sirius validator node to sign harvested blocks.
+3. Save this file safely so you can activate or reconnect your account to any validator node anytime.
+`;
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sirius-remote-key-${selectedAddress.value || "backup"}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast.add({
+    severity: "info",
+    summary: "Backup Saved",
+    detail: "Downloaded remote key backup file.",
+    group: "br-custom",
+    life: 4000,
+  });
+};
 
 const isHarvesterRegistered = ref<boolean>(false);
 const isMaturing = ref<boolean>(false);
