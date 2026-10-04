@@ -60,6 +60,13 @@
           <div v-if="isMaturing" class="mt-2.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
             Recent deposits mature over ~24h (5,760 blocks) before harvester registration unlocks.
           </div>
+
+          <div v-if="isLinked && !isHarvesterRegistered" class="mt-2.5 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">ℹ️</span>
+              <span><strong>Account Linked on-chain.</strong> Step 2 is already complete. Proceed to <strong>Step 3</strong> to register as a harvester.</span>
+            </div>
+          </div>
         </div>
 
         <!-- Step 2: Account Link (Remote Key) -->
@@ -200,27 +207,56 @@
         </div>
 
         <!-- Step 3: Harvester Committee Registration -->
-        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+        <div 
+          class="rounded-xl p-4 shadow-sm transition-all duration-200 border"
+          :class="!isLinked 
+            ? 'bg-gray-100/80 border-gray-200 opacity-60' 
+            : 'bg-white border-gray-200'"
+        >
           <div class="flex items-center justify-between mb-2.5">
-            <div class="text-sm font-bold text-gray-800">3. Register Harvester</div>
+            <div class="text-sm font-bold" :class="!isLinked ? 'text-gray-400' : 'text-gray-800'">
+              3. Register Harvester
+            </div>
             <span v-if="isHarvesterRegistered" class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
               Registered
             </span>
-            <span v-else class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">
-              Pending
+            <span v-else-if="!isLinked" class="text-xs px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full font-semibold">
+              Locked (Step 2 Pending)
+            </span>
+            <span v-else class="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">
+              Ready to Register
             </span>
           </div>
 
+          <!-- If already registered -->
           <div v-if="isHarvesterRegistered" class="p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center gap-2">
             <span class="text-green-600 text-sm font-bold">&check;</span>
             <span>Registered in Harvester Committee</span>
           </div>
 
+          <!-- If locked because linking is not done -->
+          <div v-else-if="!isLinked" class="space-y-2">
+            <div class="p-2.5 bg-gray-200/50 border border-gray-200 rounded text-xs text-gray-500 flex items-center gap-2">
+              <span class="text-sm">🔒</span>
+              <span>Account must be linked in Step 2 before registering as a harvester.</span>
+            </div>
+            <button 
+              disabled 
+              class="w-full py-2 text-xs font-semibold text-gray-400 bg-gray-200 border border-gray-300 rounded-lg cursor-not-allowed"
+            >
+              Register Harvester (Locked)
+            </button>
+          </div>
+
+          <!-- If linked and ready to register -->
           <div v-else class="space-y-2">
+            <div class="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+              💡 Account key is linked on-chain. Register below to participate in block harvesting.
+            </div>
             <button 
               @click="broadcastAddHarvester" 
               class="w-full blue-btn py-2 text-xs font-semibold text-white rounded-lg shadow-sm"
-              :disabled="!isLinked || accountBalance < 100000"
+              :disabled="accountBalance < 100000"
             >
               Register Harvester
             </button>
@@ -543,9 +579,12 @@ const generateEphemeralAccount = () => {
 };
 
 // Account selection callbacks
-const onSelectAddress = (address: string) => {
+const onSelectAddress = async (address: string) => {
   selectedAddress.value = address;
-  refreshAccountDetails();
+  await refreshAccountDetails();
+  if (!isLinked.value && !ephemeralAccount.value) {
+    generateEphemeralAccount();
+  }
 };
 
 const onSelectPublicKey = (pubKey: string) => {
@@ -579,6 +618,8 @@ const refreshAccountDetails = async () => {
       const savedKey = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
       if (savedKey && /^[0-9a-fA-F]{64}$/.test(savedKey)) {
         remotePrivateKeyInput.value = savedKey;
+      } else if (isLinked.value) {
+        remotePrivateKeyInput.value = "";
       }
     }
 
@@ -730,13 +771,15 @@ const submitKeyToNode = async () => {
   }
 };
 
-onMounted(() => {
-  generateEphemeralAccount();
+onMounted(async () => {
   const defaultAcc = walletState.currentLoggedInWallet?.selectDefaultAccount();
   if (defaultAcc) {
     selectedAddress.value = defaultAcc.address;
     selectedPublicKey.value = defaultAcc.publicKey;
-    refreshAccountDetails();
+    await refreshAccountDetails();
+  }
+  if (!isLinked.value && !ephemeralAccount.value) {
+    generateEphemeralAccount();
   }
 });
 </script>
