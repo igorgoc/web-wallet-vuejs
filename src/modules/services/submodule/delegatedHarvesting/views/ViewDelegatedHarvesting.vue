@@ -98,7 +98,7 @@
           <!-- If not linked -->
           <div v-else class="space-y-2.5">
             <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-xs">
-              <span class="text-blue-700 font-semibold block mb-0.5">Generated Remote Key:</span>
+              <span class="text-blue-700 font-semibold block mb-0.5">Generated Remote Public Key:</span>
               <div class="font-mono text-xs break-all text-blue-900 font-semibold">
                 {{ ephemeralRemotePubKey }}
               </div>
@@ -230,9 +230,14 @@
 
           <!-- Remote Private Key Input -->
           <div class="space-y-1.5 mb-3.5">
-            <label class="block text-xs font-semibold text-gray-700">
-              Remote Private Key (64-char Hex)
-            </label>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-gray-700">
+                Remote Private Key (64-char Hex)
+              </label>
+              <span v-if="isLinked && isKeyMatchingLinked" class="text-xxs text-emerald-700 font-semibold">
+                ✓ Matches Linked Key
+              </span>
+            </div>
             <div class="relative">
               <input 
                 :type="showKey ? 'text' : 'password'" 
@@ -247,6 +252,10 @@
               >
                 {{ showKey ? 'Hide' : 'Show' }}
               </button>
+            </div>
+            <div v-if="derivedRemotePubKey" class="text-xxs text-gray-500 flex items-center justify-between pt-0.5">
+              <span>Derived Public Key:</span>
+              <span class="font-mono font-semibold">{{ derivedRemotePubKey.slice(0, 12) }}...{{ derivedRemotePubKey.slice(-12) }}</span>
             </div>
           </div>
 
@@ -346,7 +355,7 @@ const derivedRemotePubKey = computed(() => {
   const k = remotePrivateKeyInput.value.trim();
   if (!/^[0-9a-fA-F]{64}$/.test(k)) return "";
   try {
-    const acc = Account.createFromPrivateKey(k, AppState.networkType);
+    const acc = Account.createFromPrivateKey(k, AppState.networkType || 184, 1);
     return acc.publicKey;
   } catch {
     return "";
@@ -421,6 +430,12 @@ const refreshAccountDetails = async () => {
 
     // 2. Linked key
     linkedRemotePubKey.value = accInfo.linkedAccountKey || "";
+    if (selectedAddress.value) {
+      const savedKey = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
+      if (savedKey && /^[0-9a-fA-F]{64}$/.test(savedKey)) {
+        remotePrivateKeyInput.value = savedKey;
+      }
+    }
 
     // 3. Maturation check (snapshots with 0 balance)
     if (accInfo.snapshots && accInfo.snapshots.length > 0) {
@@ -456,6 +471,11 @@ const refreshAccountDetails = async () => {
 // Broadcast AccountLink
 const broadcastLink = () => {
   if (!ephemeralAccount.value) return;
+  if (selectedAddress.value) {
+    try {
+      localStorage.setItem("sirius_remote_key_" + selectedAddress.value, ephemeralAccount.value.privateKey);
+    } catch {}
+  }
   const linkTx = AppState.buildTxn
     .accountLinkBuilder()
     .remoteAccountKey(ephemeralAccount.value.publicKey)
