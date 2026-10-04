@@ -73,5 +73,8 @@
   },
   "overrides": {
     "semver": "^7.5.3"
+  },
+  "optionalDependencies": {
+    "@esbuild/darwin-x64": "^0.18.20"
   }
 }

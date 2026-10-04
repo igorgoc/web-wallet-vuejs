@@ -216,19 +216,75 @@
             </span>
           </div>
 
+          <!-- Prerequisites Checklist -->
+          <div class="mb-4 p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs">
+            <div class="font-bold text-gray-700 flex items-center justify-between pb-1 border-b border-slate-200">
+              <span>On-Chain Activation Prerequisites</span>
+              <span v-if="canActivateOnNode" class="text-xxs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">READY TO ACTIVATE</span>
+              <span v-else class="text-xxs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">PREREQUISITES PENDING</span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="text-gray-600">1. Staking Balance (≥ 100,000 {{ nativeTokenName }}):</span>
+              <span v-if="hasMinimumBalance" class="text-emerald-700 font-semibold flex items-center gap-1">
+                ✓ {{ formatNumber(accountBalance) }} {{ nativeTokenName }}
+              </span>
+              <span v-else class="text-red-600 font-semibold flex items-center gap-1">
+                ✗ Insufficient ({{ formatNumber(accountBalance) }} / 100,000 {{ nativeTokenName }})
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="text-gray-600">2. Account Linked On-Chain (Step 2):</span>
+              <span v-if="isLinked" class="text-emerald-700 font-semibold flex items-center gap-1">
+                ✓ Linked
+              </span>
+              <span v-else class="text-amber-700 font-semibold flex items-center gap-1">
+                ✗ Not Linked (Complete Step 2)
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="text-gray-600">3. Registered as Harvester (Step 3):</span>
+              <span v-if="isHarvesterRegistered" class="text-emerald-700 font-semibold flex items-center gap-1">
+                ✓ Registered
+              </span>
+              <span v-else class="text-amber-700 font-semibold flex items-center gap-1">
+                ✗ Not Registered (Complete Step 3)
+              </span>
+            </div>
+
+            <div v-if="remotePrivateKeyInput.trim()" class="flex items-center justify-between pt-1 border-t border-slate-200">
+              <span class="text-gray-600">4. Key Matches Linked Account:</span>
+              <span v-if="isLinked && isKeyMatchingLinked" class="text-emerald-700 font-semibold flex items-center gap-1">
+                ✓ Key Matches Linked PubKey
+              </span>
+              <span v-else-if="!isLinked" class="text-gray-400">
+                Awaiting Step 2 Link
+              </span>
+              <span v-else class="text-red-600 font-semibold flex items-center gap-1">
+                ✗ Does Not Match Linked PubKey
+              </span>
+            </div>
+          </div>
+
           <!-- Action Button -->
           <button 
             @click="submitKeyToNode" 
-            :disabled="!isKeyValid || isSubmitting" 
-            class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition shadow"
+            :disabled="!canActivateOnNode || isSubmitting" 
+            class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition shadow"
           >
-            <span v-if="isSubmitting">Connecting to Validator...</span>
+            <span v-if="isSubmitting">Verifying & Connecting to Validator...</span>
+            <span v-else-if="!hasMinimumBalance">Cannot Activate: Balance &lt; 100,000 {{ nativeTokenName }}</span>
+            <span v-else-if="!isLinked">Cannot Activate: Account Not Linked (Complete Step 2)</span>
+            <span v-else-if="!isHarvesterRegistered">Cannot Activate: Harvester Not Registered (Complete Step 3)</span>
+            <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
             <span v-else>Activate on Validator Node &rarr;</span>
           </button>
 
           <!-- Result Message -->
           <div v-if="nodeMessage" class="mt-4 p-3 rounded-lg text-xs" :class="nodeSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'">
-            <div class="font-bold mb-0.5">{{ nodeSuccess ? 'Connected Successfully!' : 'Connection Failed' }}</div>
+            <div class="font-bold mb-0.5">{{ nodeSuccess ? 'Connected Successfully!' : 'Action Denied / Error' }}</div>
             <div>{{ nodeMessage }}</div>
           </div>
 
@@ -302,6 +358,36 @@ const nodeSuccess = ref<boolean>(false);
 const isKeyValid = computed(() => {
   const k = remotePrivateKeyInput.value.trim();
   return /^[0-9a-fA-F]{64}$/.test(k);
+});
+
+const derivedRemotePubKey = computed(() => {
+  const k = remotePrivateKeyInput.value.trim();
+  if (!/^[0-9a-fA-F]{64}$/.test(k)) return "";
+  try {
+    const acc = Account.createFromPrivateKey(k, AppState.networkType);
+    return acc.publicKey;
+  } catch {
+    return "";
+  }
+});
+
+const isKeyMatchingLinked = computed(() => {
+  if (!isLinked.value || !derivedRemotePubKey.value) return false;
+  return derivedRemotePubKey.value.toUpperCase() === linkedRemotePubKey.value.toUpperCase();
+});
+
+const hasMinimumBalance = computed(() => {
+  return accountBalance.value >= 100000;
+});
+
+const canActivateOnNode = computed(() => {
+  return (
+    isKeyValid.value &&
+    hasMinimumBalance.value &&
+    isLinked.value &&
+    isKeyMatchingLinked.value &&
+    isHarvesterRegistered.value
+  );
 });
 
 // Format numbers
@@ -436,6 +522,30 @@ const broadcastAddHarvester = () => {
 // Submit key to node
 const submitKeyToNode = async () => {
   if (!isKeyValid.value) return;
+
+  if (!hasMinimumBalance.value) {
+    nodeSuccess.value = false;
+    nodeMessage.value = `Cannot activate: Account balance (${formatNumber(accountBalance.value)} ${nativeTokenName.value}) is below the required 100,000 ${nativeTokenName.value}.`;
+    return;
+  }
+
+  if (!isLinked.value) {
+    nodeSuccess.value = false;
+    nodeMessage.value = "Cannot activate: Account is not linked on-chain. Please complete Step 2 (Link Account Key) first.";
+    return;
+  }
+
+  if (!isKeyMatchingLinked.value) {
+    nodeSuccess.value = false;
+    nodeMessage.value = "Cannot activate: The entered private key does not match the on-chain linked public key.";
+    return;
+  }
+
+  if (!isHarvesterRegistered.value) {
+    nodeSuccess.value = false;
+    nodeMessage.value = "Cannot activate: Account is not registered in the Harvester Committee on-chain. Please complete Step 3 (Register Harvester) first.";
+    return;
+  }
 
   isSubmitting.value = true;
   nodeMessage.value = "";
