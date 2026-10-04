@@ -64,9 +64,13 @@ app.component('font-awesome-icon', FontAwesomeIcon);
 app.component('Dropdown', Dropdown);
 app.component('Sidebar', Sidebar);
 app.component('Tree',Tree);
+import { Helper } from "./util/typeHelper";
 app.directive("tooltip", Tooltip);
 app.directive("maska", vMaska);
 app.directive('debounce', vue3Debounce({ lock: true }))
+app.directive('safe-html', (el, binding) => {
+  el.innerHTML = Helper.sanitizeHtml(binding.value ?? '', true);
+});
 app.mount('#app');
 
 AppStateUtils.addNewReadyStates('chainProfile');

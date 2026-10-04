@@ -1,7 +1,7 @@
 <template>
   <div class="w-full mt-0 border border-gray-200 px-2 py-2 rounded-md">
     <div class="flex">
-      <div v-html="selectedImg" />
+      <div v-safe-html="selectedImg" />
       <div class="flex flex-col ml-2 text-left">
         <div
           class="text-blue-primary font-semibold text-xxs uppercase leading-[9px]"

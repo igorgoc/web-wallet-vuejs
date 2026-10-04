@@ -40,7 +40,7 @@
       <div class="font-semibold mb-4">Update Account Metadata</div>
       <div class="border border-blue-300 rounded-md p-3 mt-3 bg-blue-50">
         <div class="flex items-center gap-2">
-          <div v-html="svgString" />
+          <div v-safe-html="svgString" />
           <div class="flex flex-col gap-0.5">
             <div class="uppercase text-xxs text-blue-primary">
               Selected Account

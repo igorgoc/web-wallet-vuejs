@@ -86,7 +86,7 @@
       </div>
       <div class="border-2 shadow-lg filter mb-10 bg-white">
         <div class="flex items-center">
-          <div v-html="svgString"></div>
+          <div v-safe-html="svgString"></div>
           <div class="flex flex-col justify-center ml-4">
             <div class="flex">
               <div class="font-semibold text-md">{{ accName }}</div>

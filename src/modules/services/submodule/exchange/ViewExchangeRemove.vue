@@ -11,7 +11,7 @@
       </div>
       <div class="border border-blue-300 rounded-md p-3 mt-3 bg-blue-50">
         <div class="flex items-center gap-2">
-          <div v-html="svgString"></div>
+          <div v-safe-html="svgString"></div>
           <div class="flex flex-col gap-0.5">
             <div class="uppercase text-xxs text-blue-primary">
               Selected Account
@@ -259,7 +259,7 @@ const getNativeTokenBalance = (address: string) => {
 const splitCurrency = (amount: number) => {
   let split = amount.toString().split(".");
   if (split[1] != undefined) {
-    return (
+    return Helper.sanitizeHtml(
       '<span class="font-semibold text-sm">' +
       split[0] +
       '</span>.<span class="font-semibold text-xs">' +
@@ -267,7 +267,7 @@ const splitCurrency = (amount: number) => {
       "</span>"
     );
   } else {
-    return '<span class="font-semibold text-sm">' + split[0] + "</span>";
+    return Helper.sanitizeHtml('<span class="font-semibold text-sm">' + split[0] + "</span>");
   }
 };
 
@@ -283,7 +283,7 @@ const themeConfig: any = new ThemeStyleConfig("ThemeStyleConfig");
 themeConfig.init();
 
 const svgString = computed(() =>
-  toSvg(props.owner, 40, themeConfig.jdenticonConfig)
+  Helper.sanitizeHtml(toSvg(props.owner, 40, themeConfig.jdenticonConfig), true)
 );
 
 const accountName = computed(() => {

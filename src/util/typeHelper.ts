@@ -31,8 +31,17 @@ import {
 import Base64 from 'crypto-js/enc-base64';
 import { OtherAcountType } from "../models/const/otherAccountType";
 import * as math from "mathjs";
+import DOMPurify from "dompurify";
 
 export class Helper {
+
+    static sanitizeHtml(dirty: string, isSvg = false): string {
+        if (!dirty) return "";
+        if (isSvg) {
+            return DOMPurify.sanitize(dirty, { USE_PROFILES: { svg: true, svgFilters: true } });
+        }
+        return DOMPurify.sanitize(dirty);
+    }
 
     static createPasswordInstance(password: string) {
         return new Password(password);

@@ -1,7 +1,7 @@
 <template>
     <div class='border-2 py-3 px-6'>
         <div class='flex'>
-            <div v-html='svgString'></div>
+            <div v-safe-html='svgString'></div>
             <div class='flex flex-col justify-center ml-4'>
                 <div class="text-red-500 text-xs" v-if="err!=''">{{ err }}</div>
                 <div class='flex '>

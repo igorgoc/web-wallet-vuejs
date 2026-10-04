@@ -409,7 +409,7 @@ const isMultisig = computed(() => selectedMultisigAddress.value != null);
 const splitCurrency = (amount: number) => {
   let split = amount.toString().split(".");
   if (split[1] != undefined) {
-    return (
+    return Helper.sanitizeHtml(
       '<span class="font-semibold text-sm">' +
       split[0] +
       '</span>.<span class="font-semibold text-xs">' +
@@ -417,7 +417,7 @@ const splitCurrency = (amount: number) => {
       "</span>"
     );
   } else {
-    return '<span class="font-semibold text-sm">' + split[0] + "</span>";
+    return Helper.sanitizeHtml('<span class="font-semibold text-sm">' + split[0] + "</span>");
   }
 };
 

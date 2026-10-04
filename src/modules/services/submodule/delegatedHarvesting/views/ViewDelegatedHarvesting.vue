@@ -125,6 +125,27 @@
               </p>
             </div>
 
+            <!-- If the private key is stored encrypted in localStorage and locked -->
+            <div v-else-if="hasStoredEncryptedKey" class="p-3 bg-blue-50 border border-blue-200 rounded text-xs space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-blue-900 flex items-center gap-1.5">
+                  <font-awesome-icon icon="lock" class="text-blue-600" />
+                  Encrypted Remote Key Saved in Storage
+                </span>
+                <button 
+                  type="button" 
+                  @click="openPasswordModal('unlock')" 
+                  class="px-2.5 py-1 bg-blue-primary hover:bg-blue-600 text-white rounded text-xxs font-bold transition cursor-pointer flex items-center gap-1"
+                >
+                  <font-awesome-icon icon="key" class="text-xxs" />
+                  Unlock with Password
+                </button>
+              </div>
+              <p class="text-xxs text-blue-800">
+                Your remote harvesting private key is safely encrypted in browser storage using your wallet password. Click unlock to view or delegate.
+              </p>
+            </div>
+
             <!-- If the private key is not yet restored in this browser session -->
             <div v-else class="p-3 bg-amber-50 border border-amber-300 rounded text-xs space-y-2">
               <div class="font-bold text-amber-900 flex items-center justify-between">
@@ -429,6 +450,45 @@
       </div>
     </template>
   </TransactionLayout>
+
+  <!-- Password Prompt Modal for Encrypt / Decrypt Remote Key -->
+  <transition
+    enter-active-class="animate__animated animate__fadeInDown"
+    leave-active-class="animate__animated animate__fadeOutUp"
+  >
+    <div v-if="togglePasswordModal" class="popup-outer-lang fixed flex z-50">
+      <div class="modal-popup-box">
+        <div class="error error_box mb-3" v-if="passwordErr != ''">{{ passwordErr }}</div>
+        <div class="text-center mt-2 text-xs font-semibold">{{ passwordModalTitle }}</div>
+        <p class="text-center text-xxs text-gray-500 mt-1 px-2">{{ passwordModalDesc }}</p>
+        <PasswordInput
+          class="my-3"
+          v-model="walletPasswdInput"
+          :placeholder="$t('general.password')"
+          :errorMessage="$t('general.passwordRequired')"
+        />
+        <button
+          type="button"
+          @click="onConfirmPasswordModal()"
+          class="blue-btn font-semibold py-2 cursor-pointer text-center ml-auto mr-auto w-7/12 disabled:opacity-50 disabled:cursor-auto block"
+          :disabled="!walletPasswdInput || walletPasswdInput.length < 8"
+        >
+          {{ passwordModalActionText }}
+        </button>
+        <div
+          class="text-center cursor-pointer text-xs font-semibold text-blue-link mt-2"
+          @click="closePasswordModal()"
+        >
+          {{ $t('general.cancel') }}
+        </div>
+      </div>
+    </div>
+  </transition>
+  <div
+    @click="closePasswordModal()"
+    v-if="togglePasswordModal"
+    class="fixed inset-0 bg-opacity-60 bg-gray-100 z-20"
+  ></div>
 </template>
 
 <script setup lang="ts">
@@ -438,6 +498,7 @@ import { useToast } from "primevue/usetoast";
 import { useI18n } from "vue-i18n";
 import TransactionLayout from "@/components/TransactionLayout.vue";
 import SelectInputAccount from "@/components/SelectInputAccount.vue";
+import PasswordInput from "@/components/PasswordInput.vue";
 import { walletState } from "@/state/walletState";
 import { AppState } from "@/state/appState";
 import { networkState } from "@/state/networkState";
@@ -449,6 +510,8 @@ import {
   Address,
   LinkAction,
   PublicAccount,
+  Crypto,
+  Password,
 } from "tsjs-xpx-chain-sdk";
 import { copyToClipboard } from "@/util/functions";
 
@@ -470,6 +533,7 @@ const ephemeralAccount = ref<Account | null>(null);
 const ephemeralRemotePubKey = computed(() => ephemeralAccount.value?.publicKey || "");
 
 const showStep2PrivKey = ref<boolean>(false);
+const remotePrivateKeyInput = ref<string>("");
 
 const isValidForLinkedKey = (privHex: string): boolean => {
   if (!privHex || !/^[0-9a-fA-F]{64}$/.test(privHex)) return false;
@@ -479,6 +543,186 @@ const isValidForLinkedKey = (privHex: string): boolean => {
     return acc.publicKey.toUpperCase() === linkedRemotePubKey.value.toUpperCase();
   } catch {
     return false;
+  }
+};
+
+interface EncryptedRemoteKeyData {
+  algo: string; // "pass:bip32"
+  encrypted: string;
+  iv: string;
+}
+
+const currentSessionPassword = ref<string>("");
+const unlockedPrivateKey = ref<string>("");
+const hasStoredEncryptedKey = ref<boolean>(false);
+
+// Modal state
+const togglePasswordModal = ref<boolean>(false);
+const walletPasswdInput = ref<string>("");
+const passwordErr = ref<string>("");
+const passwordModalAction = ref<"unlock" | "link" | "saveRestored" | "unlockAndSubmit">("unlock");
+const passwordModalTitle = ref<string>("");
+const passwordModalDesc = ref<string>("");
+const passwordModalActionText = ref<string>("");
+
+const getStoredRemoteKeyRecord = (
+  keyIdentifier: string
+): { type: "encrypted"; data: EncryptedRemoteKeyData } | { type: "plain"; key: string } | null => {
+  if (!keyIdentifier) return null;
+  try {
+    const raw = localStorage.getItem("sirius_remote_key_" + keyIdentifier);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.encrypted && parsed.iv) {
+        return { type: "encrypted", data: parsed };
+      }
+    } catch {
+      if (/^[0-9a-fA-F]{64}$/.test(raw.trim())) {
+        return { type: "plain", key: raw.trim() };
+      }
+    }
+  } catch {}
+  return null;
+};
+
+const saveEncryptedRemoteKey = (
+  keyIdentifier: string,
+  privateKeyHex: string,
+  passwordStr: string
+) => {
+  if (!keyIdentifier || !privateKeyHex || !passwordStr) return;
+  try {
+    const enc = Crypto.encodePrivateKey(privateKeyHex, passwordStr);
+    const payload: EncryptedRemoteKeyData = {
+      algo: "pass:bip32",
+      encrypted: enc.ciphertext,
+      iv: enc.iv,
+    };
+    localStorage.setItem("sirius_remote_key_" + keyIdentifier, JSON.stringify(payload));
+  } catch (err) {
+    console.error("Failed to encrypt remote key for storage:", err);
+  }
+};
+
+const decryptStoredRecord = (record: EncryptedRemoteKeyData, passwordStr: string): string => {
+  try {
+    const common = { password: passwordStr, privateKey: "" };
+    const wallet = { encrypted: record.encrypted, iv: record.iv };
+    Crypto.passwordToPrivateKey(common, wallet, 1); // Pass_bip32
+    return common.privateKey || "";
+  } catch {
+    return "";
+  }
+};
+
+const openPasswordModal = (action: "unlock" | "link" | "saveRestored" | "unlockAndSubmit") => {
+  passwordModalAction.value = action;
+  walletPasswdInput.value = "";
+  passwordErr.value = "";
+
+  if (action === "unlock") {
+    passwordModalTitle.value = "Unlock Remote Harvesting Key";
+    passwordModalDesc.value = "Enter your wallet password to decrypt your saved remote private key.";
+    passwordModalActionText.value = "Unlock Key";
+  } else if (action === "unlockAndSubmit") {
+    passwordModalTitle.value = "Unlock Remote Key for Delegation";
+    passwordModalDesc.value = "Enter your wallet password to decrypt your remote key and activate on the node.";
+    passwordModalActionText.value = "Unlock & Delegate";
+  } else if (action === "link") {
+    passwordModalTitle.value = "Encrypt & Save Remote Key";
+    passwordModalDesc.value = "Enter your wallet password to encrypt your newly generated remote key before linking.";
+    passwordModalActionText.value = "Encrypt & Link Account";
+  } else if (action === "saveRestored") {
+    passwordModalTitle.value = "Encrypt & Save Restored Key";
+    passwordModalDesc.value = "Enter your wallet password to encrypt your restored remote key into browser storage.";
+    passwordModalActionText.value = "Encrypt & Save Key";
+  }
+  togglePasswordModal.value = true;
+};
+
+const closePasswordModal = () => {
+  togglePasswordModal.value = false;
+  walletPasswdInput.value = "";
+  passwordErr.value = "";
+};
+
+const onConfirmPasswordModal = async () => {
+  if (!walletPasswdInput.value || walletPasswdInput.value.length < 8) {
+    passwordErr.value = "Password must be at least 8 characters.";
+    return;
+  }
+
+  const walletName = walletState.currentLoggedInWallet?.name || "";
+  const netName = networkState.chainNetworkName;
+  if (!WalletUtils.verifyWalletPassword(walletName, netName, walletPasswdInput.value)) {
+    passwordErr.value = t("general.walletPasswordInvalid", { name: walletName });
+    return;
+  }
+
+  currentSessionPassword.value = walletPasswdInput.value;
+
+  if (passwordModalAction.value === "unlock" || passwordModalAction.value === "unlockAndSubmit") {
+    const record =
+      getStoredRemoteKeyRecord(selectedAddress.value) ||
+      getStoredRemoteKeyRecord(linkedRemotePubKey.value);
+
+    if (record && record.type === "encrypted") {
+      const dec = decryptStoredRecord(record.data, walletPasswdInput.value);
+      if (dec && isValidForLinkedKey(dec)) {
+        unlockedPrivateKey.value = dec;
+        remotePrivateKeyInput.value = dec;
+        restoredPrivateKeyInput.value = dec;
+        closePasswordModal();
+        toast.add({
+          severity: "success",
+          summary: "Key Decrypted",
+          detail: "Remote private key successfully decrypted!",
+          group: "br-custom",
+          life: 3000,
+        });
+
+        if (passwordModalAction.value === "unlockAndSubmit") {
+          await submitKeyToNode();
+        }
+      } else {
+        passwordErr.value = "Decrypted key does not match the on-chain linked account.";
+      }
+    } else {
+      closePasswordModal();
+    }
+  } else if (passwordModalAction.value === "link") {
+    if (ephemeralAccount.value && selectedAddress.value) {
+      saveEncryptedRemoteKey(
+        selectedAddress.value,
+        ephemeralAccount.value.privateKey,
+        walletPasswdInput.value
+      );
+      unlockedPrivateKey.value = ephemeralAccount.value.privateKey;
+      closePasswordModal();
+      executeBroadcastLink();
+    }
+  } else if (passwordModalAction.value === "saveRestored") {
+    const k = restoredPrivateKeyInput.value.trim();
+    if (k && isValidForLinkedKey(k)) {
+      if (selectedAddress.value) {
+        saveEncryptedRemoteKey(selectedAddress.value, k, walletPasswdInput.value);
+      }
+      if (linkedRemotePubKey.value) {
+        saveEncryptedRemoteKey(linkedRemotePubKey.value, k, walletPasswdInput.value);
+      }
+      unlockedPrivateKey.value = k;
+      remotePrivateKeyInput.value = k;
+      hasStoredEncryptedKey.value = true;
+      closePasswordModal();
+      toast.add({
+        severity: "success",
+        summary: "Key Encrypted & Saved",
+        detail: "Remote key verified, encrypted, and saved to browser storage!",
+        group: "br-custom",
+        life: 3000,
+      });
+    }
   }
 };
 
@@ -495,43 +739,36 @@ watch(restoredPrivateKeyInput, (newVal) => {
   const k = newVal.trim();
   if (k && isValidForLinkedKey(k)) {
     remotePrivateKeyInput.value = k;
-    if (selectedAddress.value) {
-      try {
-        localStorage.setItem("sirius_remote_key_" + selectedAddress.value, k);
-        if (linkedRemotePubKey.value) {
-          localStorage.setItem("sirius_remote_key_" + linkedRemotePubKey.value, k);
-        }
-      } catch {}
+    unlockedPrivateKey.value = k;
+    if (currentSessionPassword.value && selectedAddress.value) {
+      saveEncryptedRemoteKey(selectedAddress.value, k, currentSessionPassword.value);
+      if (linkedRemotePubKey.value) {
+        saveEncryptedRemoteKey(linkedRemotePubKey.value, k, currentSessionPassword.value);
+      }
+      hasStoredEncryptedKey.value = true;
+      toast.add({
+        severity: "success",
+        summary: "Key Encrypted & Saved",
+        detail: "Remote private key verified and encrypted in local storage!",
+        group: "br-custom",
+        life: 3000,
+      });
+    } else {
+      openPasswordModal("saveRestored");
     }
-    toast.add({
-      severity: "success",
-      summary: "Key Restored",
-      detail: "Remote private key verified and saved for this session!",
-      group: "br-custom",
-      life: 3000,
-    });
   }
 });
 
 const activeOrSavedPrivateKey = computed(() => {
   if (isLinked.value) {
+    if (unlockedPrivateKey.value && isValidForLinkedKey(unlockedPrivateKey.value.trim())) {
+      return unlockedPrivateKey.value.trim();
+    }
     if (restoredPrivateKeyInput.value && isValidForLinkedKey(restoredPrivateKeyInput.value.trim())) {
       return restoredPrivateKeyInput.value.trim();
     }
     if (remotePrivateKeyInput.value && isValidForLinkedKey(remotePrivateKeyInput.value.trim())) {
       return remotePrivateKeyInput.value.trim();
-    }
-    if (selectedAddress.value) {
-      const savedByAddr = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
-      if (savedByAddr && isValidForLinkedKey(savedByAddr)) {
-        return savedByAddr;
-      }
-    }
-    if (linkedRemotePubKey.value) {
-      const savedByPub = localStorage.getItem("sirius_remote_key_" + linkedRemotePubKey.value);
-      if (savedByPub && isValidForLinkedKey(savedByPub)) {
-        return savedByPub;
-      }
     }
     // Never return an unverified random key when linked
     return "";
@@ -597,7 +834,6 @@ const targetNodeUrl = computed(() => {
   return customNodeUrl.value.trim().replace(/\/+$/, "");
 });
 
-const remotePrivateKeyInput = ref<string>("");
 const showKey = ref<boolean>(false);
 const isSubmitting = ref<boolean>(false);
 const nodeMessage = ref<string>("");
@@ -626,15 +862,14 @@ const isKeyMatchingLinked = computed(() => {
 
 watch(remotePrivateKeyInput, (newVal) => {
   const k = newVal.trim();
-  if (isLinked.value && isValidForLinkedKey(k)) {
+  if (isLinked.value && isValidForLinkedKey(k) && currentSessionPassword.value) {
     if (selectedAddress.value) {
-      try {
-        localStorage.setItem("sirius_remote_key_" + selectedAddress.value, k);
-        if (linkedRemotePubKey.value) {
-          localStorage.setItem("sirius_remote_key_" + linkedRemotePubKey.value, k);
-        }
-      } catch {}
+      saveEncryptedRemoteKey(selectedAddress.value, k, currentSessionPassword.value);
     }
+    if (linkedRemotePubKey.value) {
+      saveEncryptedRemoteKey(linkedRemotePubKey.value, k, currentSessionPassword.value);
+    }
+    hasStoredEncryptedKey.value = true;
   }
 });
 
@@ -705,28 +940,57 @@ const refreshAccountDetails = async () => {
     // 2. Linked key
     linkedRemotePubKey.value = accInfo.linkedAccountKey || "";
     if (isLinked.value) {
-      let matchedSavedKey = "";
-      if (selectedAddress.value) {
-        const savedByAddr = localStorage.getItem("sirius_remote_key_" + selectedAddress.value);
-        if (savedByAddr && isValidForLinkedKey(savedByAddr)) {
-          matchedSavedKey = savedByAddr;
-        }
-      }
-      if (!matchedSavedKey && linkedRemotePubKey.value) {
-        const savedByPub = localStorage.getItem("sirius_remote_key_" + linkedRemotePubKey.value);
-        if (savedByPub && isValidForLinkedKey(savedByPub)) {
-          matchedSavedKey = savedByPub;
-        }
-      }
+      const record =
+        getStoredRemoteKeyRecord(selectedAddress.value) ||
+        getStoredRemoteKeyRecord(linkedRemotePubKey.value);
 
-      if (matchedSavedKey) {
-        remotePrivateKeyInput.value = matchedSavedKey;
-        restoredPrivateKeyInput.value = matchedSavedKey;
-      } else if (!isValidForLinkedKey(remotePrivateKeyInput.value.trim())) {
-        remotePrivateKeyInput.value = "";
-        restoredPrivateKeyInput.value = "";
+      if (record) {
+        if (record.type === "encrypted") {
+          hasStoredEncryptedKey.value = true;
+          if (unlockedPrivateKey.value && isValidForLinkedKey(unlockedPrivateKey.value)) {
+            remotePrivateKeyInput.value = unlockedPrivateKey.value;
+            restoredPrivateKeyInput.value = unlockedPrivateKey.value;
+          } else if (currentSessionPassword.value) {
+            const dec = decryptStoredRecord(record.data, currentSessionPassword.value);
+            if (dec && isValidForLinkedKey(dec)) {
+              unlockedPrivateKey.value = dec;
+              remotePrivateKeyInput.value = dec;
+              restoredPrivateKeyInput.value = dec;
+            } else {
+              unlockedPrivateKey.value = "";
+              remotePrivateKeyInput.value = "";
+              restoredPrivateKeyInput.value = "";
+            }
+          } else {
+            unlockedPrivateKey.value = "";
+            remotePrivateKeyInput.value = "";
+            restoredPrivateKeyInput.value = "";
+          }
+        } else if (record.type === "plain") {
+          if (isValidForLinkedKey(record.key)) {
+            unlockedPrivateKey.value = record.key;
+            remotePrivateKeyInput.value = record.key;
+            restoredPrivateKeyInput.value = record.key;
+            if (currentSessionPassword.value) {
+              saveEncryptedRemoteKey(selectedAddress.value, record.key, currentSessionPassword.value);
+              if (linkedRemotePubKey.value) {
+                saveEncryptedRemoteKey(linkedRemotePubKey.value, record.key, currentSessionPassword.value);
+              }
+              hasStoredEncryptedKey.value = true;
+            }
+          }
+        }
+      } else {
+        hasStoredEncryptedKey.value = false;
+        if (!unlockedPrivateKey.value || !isValidForLinkedKey(unlockedPrivateKey.value)) {
+          unlockedPrivateKey.value = "";
+          remotePrivateKeyInput.value = "";
+          restoredPrivateKeyInput.value = "";
+        }
       }
     } else {
+      hasStoredEncryptedKey.value = false;
+      unlockedPrivateKey.value = "";
       restoredPrivateKeyInput.value = "";
       if (!ephemeralAccount.value) {
         generateEphemeralAccount();
@@ -769,12 +1033,24 @@ const refreshAccountDetails = async () => {
 
 // Broadcast AccountLink
 const broadcastLink = () => {
-  if (!ephemeralAccount.value) return;
-  if (selectedAddress.value) {
-    try {
-      localStorage.setItem("sirius_remote_key_" + selectedAddress.value, ephemeralAccount.value.privateKey);
-    } catch {}
+  if (!ephemeralAccount.value || !selectedAddress.value) return;
+
+  if (currentSessionPassword.value) {
+    saveEncryptedRemoteKey(
+      selectedAddress.value,
+      ephemeralAccount.value.privateKey,
+      currentSessionPassword.value
+    );
+    unlockedPrivateKey.value = ephemeralAccount.value.privateKey;
+    hasStoredEncryptedKey.value = true;
+    executeBroadcastLink();
+  } else {
+    openPasswordModal("link");
   }
+};
+
+const executeBroadcastLink = () => {
+  if (!ephemeralAccount.value) return;
   const linkTx = AppState.buildTxn
     .accountLinkBuilder()
     .remoteAccountKey(ephemeralAccount.value.publicKey)
@@ -822,7 +1098,13 @@ const broadcastAddHarvester = () => {
 
 // Submit key to node
 const submitKeyToNode = async () => {
-  if (!isKeyValid.value) return;
+  if (hasStoredEncryptedKey.value && (!activeOrSavedPrivateKey.value || !unlockedPrivateKey.value)) {
+    openPasswordModal("unlockAndSubmit");
+    return;
+  }
+
+  const keyToUse = activeOrSavedPrivateKey.value || remotePrivateKeyInput.value.trim();
+  if (!keyToUse || !isValidForLinkedKey(keyToUse)) return;
 
   if (!hasMinimumBalance.value) {
     nodeSuccess.value = false;
@@ -836,7 +1118,7 @@ const submitKeyToNode = async () => {
     return;
   }
 
-  if (!isKeyMatchingLinked.value) {
+  if (!isKeyMatchingLinked.value && !isValidForLinkedKey(keyToUse)) {
     nodeSuccess.value = false;
     nodeMessage.value = "Cannot activate: The entered private key does not match the on-chain linked public key.";
     return;
@@ -856,7 +1138,7 @@ const submitKeyToNode = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        remotePrivateKey: remotePrivateKeyInput.value.trim(),
+        remotePrivateKey: keyToUse,
         ownerAddress: selectedAddress.value,
         label: "Sirius-Web-Wallet-Delegator",
       }),
