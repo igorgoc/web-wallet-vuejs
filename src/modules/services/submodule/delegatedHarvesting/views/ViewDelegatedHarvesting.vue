@@ -112,13 +112,12 @@
                   :value="activeOrSavedPrivateKey" 
                   class="w-full bg-white border border-orange-primary/30 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
                 />
-                <button 
-                  type="button" 
-                  @click="showStep2PrivKey = !showStep2PrivKey" 
-                  class="absolute right-2 top-1.5 text-orange-primary hover:text-orange-action text-xxs font-semibold cursor-pointer"
-                >
-                  {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
-                </button>
+                <font-awesome-icon 
+                  :icon="showStep2PrivKey ? 'eye-slash' : 'eye'" 
+                  :title="showStep2PrivKey ? 'Hide Private Key' : 'Reveal Private Key'" 
+                  class="absolute right-3 top-2.5 text-orange-primary hover:text-orange-action cursor-pointer text-xs" 
+                  @click="showStep2PrivKey = !showStep2PrivKey"
+                />
               </div>
 
               <p class="text-xxs text-gray-600">
@@ -174,13 +173,12 @@
                     :value="ephemeralAccount?.privateKey" 
                     class="w-full bg-white border border-blue-200 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
                   />
-                  <button 
-                    type="button" 
-                    @click="showStep2PrivKey = !showStep2PrivKey" 
-                    class="absolute right-2 top-1.5 text-blue-link hover:underline text-xxs font-semibold cursor-pointer"
-                  >
-                    {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
-                  </button>
+                  <font-awesome-icon 
+                    :icon="showStep2PrivKey ? 'eye-slash' : 'eye'" 
+                    :title="showStep2PrivKey ? 'Hide Private Key' : 'Reveal Private Key'" 
+                    class="absolute right-3 top-2.5 text-blue-link hover:text-blue-primary cursor-pointer text-xs" 
+                    @click="showStep2PrivKey = !showStep2PrivKey"
+                  />
                 </div>
                 <span class="text-xxs text-gray-500 block mt-1">
                   Save this key before linking. You will submit it in Step 4.
@@ -359,13 +357,12 @@
               placeholder="64-character remote key" 
               class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-mono pr-12 focus:outline-none"
             />
-            <button 
-              type="button" 
-              @click="showKey = !showKey" 
-              class="absolute right-2 top-2 text-gray-500 hover:text-gray-700 text-xs font-semibold cursor-pointer"
-            >
-              {{ showKey ? 'Hide' : 'Show' }}
-            </button>
+            <font-awesome-icon 
+              :icon="showKey ? 'eye-slash' : 'eye'" 
+              :title="showKey ? 'Hide Private Key' : 'Show Private Key'" 
+              class="absolute right-3 top-3 text-gray-400 hover:text-gray-600 cursor-pointer text-xs" 
+              @click="showKey = !showKey"
+            />
           </div>
         </div>
 
