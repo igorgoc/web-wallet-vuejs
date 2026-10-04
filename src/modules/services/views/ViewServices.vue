@@ -36,7 +36,7 @@
             <div class='text-center text-xs font-semibold'>Harvester Transaction</div>
           </router-link>
           <router-link :to="{ name: 'ViewDelegatedHarvesting' }" class='mx-auto '>
-            <img src="@/assets/img/navi/icon-airdrop.svg"
+            <img src="@/assets/img/navi/icon-delegated-harvesting.svg"
               class="ml-auto mr-auto mt-4 mb-3 h-18 w-18">
             <div class='text-center text-xs font-semibold'>Delegated Staking</div>
           </router-link>
