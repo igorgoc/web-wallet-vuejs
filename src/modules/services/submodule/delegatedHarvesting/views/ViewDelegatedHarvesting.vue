@@ -1,41 +1,32 @@
 <template>
-  <div class="mt-8 px-5 pt-5 max-w-5xl mx-auto">
-    <div class="flex items-center gap-3 mb-2">
-      <router-link :to="{ name: 'ViewServices' }" class="text-blue-primary hover:underline text-xs flex items-center gap-1 font-semibold">
-        &larr; {{ $t("general.backToServices", "Services") }}
-      </router-link>
-    </div>
-
-    <!-- Title & Introduction Banner -->
-    <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white rounded-xl p-6 shadow-md mb-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight">Delegated Staking & Node Harvesting</h1>
-          <p class="text-blue-200 text-xs mt-1 max-w-2xl">
-            Delegate your account's harvesting stake (≥ 100,000 XPX) to a high-uptime community validator node. 
-            Block rewards are credited directly to your account on-chain.
-          </p>
+  <TransactionLayout class="mt-8">
+    <template #white>
+      <div class="flex items-center justify-between mb-4">
+        <div class="font-semibold text-sm md:text-base text-gray-800">
+          Delegated Staking & Node Harvesting
         </div>
-        <div class="flex items-center gap-2 bg-blue-950/60 border border-blue-400/30 px-3 py-2 rounded-lg text-xs">
-          <span class="text-emerald-400 font-bold">100% Non-Custodial</span>
-          <span class="text-gray-300">| Funds never leave your wallet</span>
+        <div class="flex items-center gap-1.5 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-full font-semibold">
+          <span>🛡️</span>
+          <span>100% Non-Custodial</span>
         </div>
       </div>
-    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Left Column: Steps 1, 2, 3 -->
-      <div class="lg:col-span-2 space-y-6">
-        
-        <!-- Step 1: Account Selection & Stake -->
-        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <div class="text-sm font-bold text-gray-800 mb-2.5 flex items-center justify-between">
-            <span>1. Account & Stake</span>
-            <span v-if="accountBalance >= 100000" class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
-              Eligible ({{ formatNumber(accountBalance) }} XPX)
+      <!-- Overview Info Callout -->
+      <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900 leading-relaxed">
+        Delegate your account's harvesting stake (≥ 100,000 {{ nativeTokenName }}) to a community validator node.
+        Your funds never leave your wallet, and block rewards are deposited directly into your account on-chain.
+      </div>
+
+      <div class="space-y-6">
+        <!-- Step 1: Account & Stake -->
+        <div class="border border-gray-200 rounded p-4 bg-white shadow-sm">
+          <div class="text-xs font-bold text-gray-800 mb-2 flex items-center justify-between">
+            <span class="uppercase tracking-wider">1. Account & Stake</span>
+            <span v-if="accountBalance >= 100000" class="text-xxs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
+              Eligible ({{ formatNumber(accountBalance) }} {{ nativeTokenName }})
             </span>
-            <span v-else class="text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-semibold">
-              Below 100k XPX Minimum
+            <span v-else class="text-xxs px-2 py-0.5 bg-red-100 text-red-600 rounded-full font-semibold">
+              Below 100k {{ nativeTokenName }} Minimum
             </span>
           </div>
 
@@ -46,7 +37,7 @@
             @select-account-public-key="onSelectPublicKey" 
           />
 
-          <div class="mt-2.5 grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+          <div class="mt-2.5 grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded border border-gray-200">
             <div>
               <span class="text-gray-500">Balance:</span>
               <div class="font-bold text-gray-800">{{ formatNumber(accountBalance) }} {{ nativeTokenName }}</div>
@@ -57,11 +48,11 @@
             </div>
           </div>
 
-          <div v-if="isMaturing" class="mt-2.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <div v-if="isMaturing" class="mt-2.5 p-2 bg-orange-light border border-orange-primary/30 rounded text-xs text-orange-primary">
             Recent deposits mature over ~24h (5,760 blocks) before harvester registration unlocks.
           </div>
 
-          <div v-if="isLinked && !isHarvesterRegistered" class="mt-2.5 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-center justify-between">
+          <div v-if="isLinked && !isHarvesterRegistered" class="mt-2.5 p-2.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-base">ℹ️</span>
               <span><strong>Account Linked on-chain.</strong> Step 2 is already complete. Proceed to <strong>Step 3</strong> to register as a harvester.</span>
@@ -69,21 +60,21 @@
           </div>
         </div>
 
-        <!-- Step 2: Account Link (Remote Key) -->
-        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <div class="flex items-center justify-between mb-2.5">
-            <div class="text-sm font-bold text-gray-800">2. Link Remote Key</div>
-            <span v-if="isLinked" class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
+        <!-- Step 2: Link Remote Key -->
+        <div class="border border-gray-200 rounded p-4 bg-white shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-bold text-gray-800 uppercase tracking-wider">2. Link Remote Key</div>
+            <span v-if="isLinked" class="text-xxs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
               Linked
             </span>
-            <span v-else class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">
+            <span v-else class="text-xxs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold">
               Not Linked
             </span>
           </div>
 
           <!-- If already linked -->
           <div v-if="isLinked" class="space-y-2.5">
-            <div class="bg-gray-50 border border-gray-200 p-2.5 rounded-lg text-xs">
+            <div class="bg-gray-50 border border-gray-200 p-2.5 rounded text-xs">
               <span class="text-gray-500 block text-xxs uppercase font-semibold">Linked Remote Public Key (On-Chain)</span>
               <div class="font-mono text-xs break-all text-gray-800 font-semibold mt-0.5">
                 {{ linkedRemotePubKey }}
@@ -91,23 +82,23 @@
             </div>
 
             <!-- Private Key Backup Box -->
-            <div v-if="activeOrSavedPrivateKey" class="p-3 bg-amber-50/90 border border-amber-300 rounded-lg text-xs space-y-2">
+            <div v-if="activeOrSavedPrivateKey" class="p-3 bg-orange-light border border-orange-primary/30 rounded text-xs space-y-2">
               <div class="flex items-center justify-between">
-                <span class="font-bold text-amber-900 flex items-center gap-1">
+                <span class="font-bold text-orange-primary flex items-center gap-1">
                   🔑 Remote Private Key (Save for Node Delegation)
                 </span>
                 <div class="flex items-center gap-1.5">
                   <button 
                     type="button" 
                     @click="copyKey(activeOrSavedPrivateKey)" 
-                    class="px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded text-xxs font-bold transition cursor-pointer"
+                    class="px-2 py-0.5 bg-orange-primary hover:bg-orange-action text-white rounded text-xxs font-bold transition cursor-pointer"
                   >
                     Copy Key
                   </button>
                   <button 
                     type="button" 
                     @click="downloadBackupFile" 
-                    class="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xxs font-bold transition cursor-pointer"
+                    class="px-2 py-0.5 bg-navy-primary hover:bg-navy-lighter text-white rounded text-xxs font-bold transition cursor-pointer"
                   >
                     Download Backup (.txt)
                   </button>
@@ -119,18 +110,18 @@
                   :type="showStep2PrivKey ? 'text' : 'password'" 
                   readonly 
                   :value="activeOrSavedPrivateKey" 
-                  class="w-full bg-white border border-amber-200 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
+                  class="w-full bg-white border border-orange-primary/30 rounded p-1.5 font-mono text-xs text-gray-800 pr-12 focus:outline-none"
                 />
                 <button 
                   type="button" 
                   @click="showStep2PrivKey = !showStep2PrivKey" 
-                  class="absolute right-2 top-1.5 text-amber-800 hover:text-amber-950 text-xxs font-semibold cursor-pointer"
+                  class="absolute right-2 top-1.5 text-orange-primary hover:text-orange-action text-xxs font-semibold cursor-pointer"
                 >
                   {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
                 </button>
               </div>
 
-              <p class="text-xxs text-amber-800">
+              <p class="text-xxs text-gray-600">
                 ⚠️ <strong>Save this private key now.</strong> The blockchain only stores your public key. You will need this key whenever you connect to a validator node.
               </p>
             </div>
@@ -144,8 +135,9 @@
                 &check; Linked on Sirius Mainnet
               </span>
               <button 
+                type="button"
                 @click="broadcastUnlink" 
-                class="text-xs text-red-500 hover:text-red-700 font-semibold hover:underline cursor-pointer"
+                class="text-xs text-red-primary hover:underline font-semibold cursor-pointer"
               >
                 Unlink
               </button>
@@ -154,22 +146,22 @@
 
           <!-- If not linked -->
           <div v-else class="space-y-2.5">
-            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-xs space-y-2">
+            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded text-xs space-y-2">
               <div>
                 <div class="flex items-center justify-between mb-1">
-                  <span class="text-blue-700 font-semibold text-xxs uppercase">Remote Private Key (Required for Step 4)</span>
+                  <span class="text-blue-primary font-semibold text-xxs uppercase">Remote Private Key (Required for Step 4)</span>
                   <div class="flex items-center gap-1.5">
                     <button 
                       type="button" 
                       @click="copyKey(ephemeralAccount?.privateKey || '')" 
-                      class="text-xxs text-blue-800 hover:underline font-bold cursor-pointer"
+                      class="text-xxs text-blue-link hover:underline font-bold cursor-pointer"
                     >
                       Copy
                     </button>
                     <button 
                       type="button" 
                       @click="downloadBackupFile" 
-                      class="text-xxs text-blue-800 hover:underline font-bold cursor-pointer"
+                      class="text-xxs text-blue-link hover:underline font-bold cursor-pointer"
                     >
                       Download (.txt)
                     </button>
@@ -185,20 +177,21 @@
                   <button 
                     type="button" 
                     @click="showStep2PrivKey = !showStep2PrivKey" 
-                    class="absolute right-2 top-1.5 text-blue-700 hover:text-blue-900 text-xxs font-semibold cursor-pointer"
+                    class="absolute right-2 top-1.5 text-blue-link hover:underline text-xxs font-semibold cursor-pointer"
                   >
                     {{ showStep2PrivKey ? 'Hide' : 'Reveal' }}
                   </button>
                 </div>
-                <span class="text-xxs text-blue-600 block mt-1">
+                <span class="text-xxs text-gray-500 block mt-1">
                   Save this key before linking. You will submit it in Step 4.
                 </span>
               </div>
             </div>
 
             <button 
+              type="button"
               @click="broadcastLink" 
-              class="w-full blue-btn py-2 text-xs font-semibold text-white rounded-lg shadow-sm"
+              class="w-full blue-btn py-3 text-xs font-semibold text-white rounded shadow-sm cursor-pointer"
               :disabled="accountBalance < 0.2"
             >
               Link Key
@@ -208,28 +201,28 @@
 
         <!-- Step 3: Harvester Committee Registration -->
         <div 
-          class="rounded-xl p-4 shadow-sm transition-all duration-200 border"
+          class="rounded p-4 shadow-sm transition-all duration-200 border"
           :class="!isLinked 
             ? 'bg-gray-100/80 border-gray-200 opacity-60' 
             : 'bg-white border-gray-200'"
         >
-          <div class="flex items-center justify-between mb-2.5">
-            <div class="text-sm font-bold" :class="!isLinked ? 'text-gray-400' : 'text-gray-800'">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-bold uppercase tracking-wider" :class="!isLinked ? 'text-gray-400' : 'text-gray-800'">
               3. Register Harvester
             </div>
-            <span v-if="isHarvesterRegistered" class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
+            <span v-if="isHarvesterRegistered" class="text-xxs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">
               Registered
             </span>
-            <span v-else-if="!isLinked" class="text-xs px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full font-semibold">
+            <span v-else-if="!isLinked" class="text-xxs px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full font-semibold">
               Locked (Step 2 Pending)
             </span>
-            <span v-else class="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">
+            <span v-else class="text-xxs px-2 py-0.5 bg-orange-light text-orange-primary rounded-full font-semibold border border-orange-primary/30">
               Ready to Register
             </span>
           </div>
 
           <!-- If already registered -->
-          <div v-if="isHarvesterRegistered" class="p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center gap-2">
+          <div v-if="isHarvesterRegistered" class="p-2.5 bg-green-50 border border-green-200 rounded text-xs text-green-800 flex items-center gap-2">
             <span class="text-green-600 text-sm font-bold">&check;</span>
             <span>Registered in Harvester Committee</span>
           </div>
@@ -241,8 +234,9 @@
               <span>Account must be linked in Step 2 before registering as a harvester.</span>
             </div>
             <button 
+              type="button"
               disabled 
-              class="w-full py-2 text-xs font-semibold text-gray-400 bg-gray-200 border border-gray-300 rounded-lg cursor-not-allowed"
+              class="w-full py-3 text-xs font-semibold text-gray-400 bg-gray-200 border border-gray-300 rounded cursor-not-allowed"
             >
               Register Harvester (Locked)
             </button>
@@ -254,159 +248,164 @@
               💡 Account key is linked on-chain. Register below to participate in block harvesting.
             </div>
             <button 
+              type="button"
               @click="broadcastAddHarvester" 
-              class="w-full blue-btn py-2 text-xs font-semibold text-white rounded-lg shadow-sm"
+              class="w-full blue-btn py-3 text-xs font-semibold text-white rounded shadow-sm cursor-pointer"
               :disabled="accountBalance < 100000"
             >
               Register Harvester
             </button>
-            <div v-if="accountBalance < 100000" class="text-xxs text-red-500 text-center">
-              Requires min. 100,000 XPX stake.
+            <div v-if="accountBalance < 100000" class="text-xxs text-red-primary text-center">
+              Requires min. 100,000 {{ nativeTokenName }} stake.
             </div>
           </div>
         </div>
-
       </div>
+    </template>
 
-      <!-- Right Column: Step 4 - Connect to Validator Node -->
-      <div class="space-y-6">
-        
-        <div class="bg-white border-2 border-indigo-100 rounded-xl p-4 shadow-md">
-          <div class="text-sm font-bold text-indigo-900 mb-3 flex items-center gap-2">
-            <span class="bg-indigo-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">4</span>
-            Activate on Validator Node
+    <template #navy>
+      <div class="text-white space-y-4">
+        <div class="font-semibold text-sm border-b border-navy-lighter pb-3 text-white">
+          4. Activate on Validator Node
+        </div>
+
+        <!-- Prerequisites Checklist -->
+        <div class="p-3 bg-navy-lighter/30 border border-navy-lighter/60 rounded text-xs space-y-2">
+          <div class="font-bold text-gray-200 flex items-center justify-between pb-1.5 border-b border-navy-lighter/50">
+            <span>Prerequisites</span>
+            <span v-if="canActivateOnNode" class="text-xxs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">READY</span>
+            <span v-else class="text-xxs px-2 py-0.5 rounded-full bg-orange-primary/20 text-orange-200 border border-orange-primary/40 font-bold">PENDING</span>
           </div>
 
-          <!-- Prerequisites Checklist -->
-          <div class="mb-3.5 p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs">
-            <div class="font-bold text-gray-700 flex items-center justify-between pb-1 border-b border-slate-200">
-              <span>Prerequisites</span>
-              <span v-if="canActivateOnNode" class="text-xxs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">READY</span>
-              <span v-else class="text-xxs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">PENDING</span>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <span class="text-gray-600">Stake (≥ 100k {{ nativeTokenName }}):</span>
-              <span v-if="hasMinimumBalance" class="text-emerald-700 font-semibold">
-                ✓ {{ formatNumber(accountBalance) }}
-              </span>
-              <span v-else class="text-red-600 font-semibold">
-                ✗ {{ formatNumber(accountBalance) }}
-              </span>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <span class="text-gray-600">Key Linked (Step 2):</span>
-              <span v-if="isLinked" class="text-emerald-700 font-semibold">
-                ✓ Linked
-              </span>
-              <span v-else class="text-amber-700 font-semibold">
-                ✗ Not Linked
-              </span>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <span class="text-gray-600">Harvester (Step 3):</span>
-              <span v-if="isHarvesterRegistered" class="text-emerald-700 font-semibold">
-                ✓ Registered
-              </span>
-              <span v-else class="text-amber-700 font-semibold">
-                ✗ Pending
-              </span>
-            </div>
-
-            <div v-if="remotePrivateKeyInput.trim()" class="flex items-center justify-between pt-1 border-t border-slate-200">
-              <span class="text-gray-600">Key Matches:</span>
-              <span v-if="isLinked && isKeyMatchingLinked" class="text-emerald-700 font-semibold">
-                ✓ Matches
-              </span>
-              <span v-else-if="!isLinked" class="text-gray-400">
-                Awaiting Link
-              </span>
-              <span v-else class="text-red-600 font-semibold">
-                ✗ Mismatch
-              </span>
-            </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-300">Stake (≥ 100k {{ nativeTokenName }}):</span>
+            <span v-if="hasMinimumBalance" class="text-emerald-400 font-semibold">
+              ✓ {{ formatNumber(accountBalance) }}
+            </span>
+            <span v-else class="text-red-400 font-semibold">
+              ✗ {{ formatNumber(accountBalance) }}
+            </span>
           </div>
 
-          <!-- Node Selection -->
-          <div class="space-y-2 mb-3">
-            <label class="block text-xs font-semibold text-gray-700">Validator Node</label>
-            <select 
-              v-model="selectedNodePreset" 
-              class="w-full border border-gray-300 rounded-lg p-2 text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-indigo-500"
-            >
-              <option value="default">⭐ Igor's Community Validator (Local / Host)</option>
-              <option value="custom">🌐 Custom Node...</option>
-            </select>
-
-            <div v-if="selectedNodePreset === 'custom'" class="mt-1.5">
-              <input 
-                type="text" 
-                v-model="customNodeUrl" 
-                placeholder="http://node-ip:8080" 
-                class="w-full border border-gray-300 rounded-lg p-2 text-xs font-mono"
-              />
-            </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-300">Key Linked (Step 2):</span>
+            <span v-if="isLinked" class="text-emerald-400 font-semibold">
+              ✓ Linked
+            </span>
+            <span v-else class="text-orange-primary font-semibold">
+              ✗ Not Linked
+            </span>
           </div>
 
-          <!-- Remote Private Key Input -->
-          <div class="space-y-1.5 mb-3.5">
-            <div class="flex items-center justify-between">
-              <label class="block text-xs font-semibold text-gray-700">
-                Remote Private Key (64-char Hex)
-              </label>
-              <span v-if="isLinked && isKeyMatchingLinked" class="text-xxs text-emerald-700 font-semibold">
-                ✓ Matches Linked Key
-              </span>
-            </div>
-            <div class="relative">
-              <input 
-                :type="showKey ? 'text' : 'password'" 
-                v-model="remotePrivateKeyInput" 
-                placeholder="64-character remote key" 
-                class="w-full border border-gray-300 rounded-lg p-2 text-xs font-mono pr-10 focus:outline-none focus:border-indigo-500"
-              />
-              <button 
-                type="button" 
-                @click="showKey = !showKey" 
-                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600 text-xs"
-              >
-                {{ showKey ? 'Hide' : 'Show' }}
-              </button>
-            </div>
+          <div class="flex items-center justify-between">
+            <span class="text-gray-300">Harvester (Step 3):</span>
+            <span v-if="isHarvesterRegistered" class="text-emerald-400 font-semibold">
+              ✓ Registered
+            </span>
+            <span v-else class="text-orange-primary font-semibold">
+              ✗ Pending
+            </span>
           </div>
 
-          <!-- Action Button -->
-          <button 
-            @click="submitKeyToNode" 
-            :disabled="!canActivateOnNode || isSubmitting" 
-            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition shadow"
+          <div v-if="remotePrivateKeyInput.trim()" class="flex items-center justify-between pt-1 border-t border-navy-lighter/50">
+            <span class="text-gray-300">Key Matches:</span>
+            <span v-if="isLinked && isKeyMatchingLinked" class="text-emerald-400 font-semibold">
+              ✓ Matches
+            </span>
+            <span v-else-if="!isLinked" class="text-gray-400">
+              Awaiting Link
+            </span>
+            <span v-else class="text-red-400 font-semibold">
+              ✗ Mismatch
+            </span>
+          </div>
+        </div>
+
+        <!-- Node Selection -->
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-gray-200">Validator Node</label>
+          <select 
+            v-model="selectedNodePreset" 
+            class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-semibold focus:outline-none"
           >
-            <span v-if="isSubmitting">Connecting to Node...</span>
-            <span v-else-if="!hasMinimumBalance">Cannot Activate: Balance &lt; 100k {{ nativeTokenName }}</span>
-            <span v-else-if="!isLinked">Cannot Activate: Not Linked</span>
-            <span v-else-if="!isHarvesterRegistered">Cannot Activate: Not Registered</span>
-            <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
-            <span v-else>Activate on Validator Node &rarr;</span>
-          </button>
+            <option value="default">⭐ Igor's Community Validator (Local / Host)</option>
+            <option value="custom">🌐 Custom Node...</option>
+          </select>
 
-          <!-- Result Message -->
-          <div v-if="nodeMessage" class="mt-3 p-2.5 rounded-lg text-xs" :class="nodeSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'">
-            <div class="font-bold mb-0.5">{{ nodeSuccess ? 'Success' : 'Error' }}</div>
-            <div>{{ nodeMessage }}</div>
-          </div>
-
-          <!-- Node Connected Status -->
-          <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-            <span class="text-gray-500">Target:</span>
-            <span class="font-mono text-gray-700 font-semibold">{{ targetNodeUrl }}</span>
+          <div v-if="selectedNodePreset === 'custom'" class="mt-1">
+            <input 
+              type="text" 
+              v-model="customNodeUrl" 
+              placeholder="http://node-ip:8080" 
+              class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-mono focus:outline-none"
+            />
           </div>
         </div>
 
+        <!-- Remote Private Key Input -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-semibold text-gray-200">
+              Remote Private Key (64-char Hex)
+            </label>
+            <span v-if="isLinked && isKeyMatchingLinked" class="text-xxs text-emerald-400 font-semibold">
+              ✓ Matches
+            </span>
+          </div>
+          <div class="relative">
+            <input 
+              :type="showKey ? 'text' : 'password'" 
+              v-model="remotePrivateKeyInput" 
+              placeholder="64-character remote key" 
+              class="w-full bg-white text-gray-800 border border-gray-300 rounded p-2 text-xs font-mono pr-12 focus:outline-none"
+            />
+            <button 
+              type="button" 
+              @click="showKey = !showKey" 
+              class="absolute right-2 top-2 text-gray-500 hover:text-gray-700 text-xs font-semibold cursor-pointer"
+            >
+              {{ showKey ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Button (Matching ViewHarvesterTxn.vue blue-btn style) -->
+        <button 
+          type="button"
+          @click="submitKeyToNode" 
+          :disabled="!canActivateOnNode || isSubmitting" 
+          class="mt-3 w-full blue-btn py-4 disabled:opacity-50 disabled:cursor-auto text-white text-xs font-semibold cursor-pointer"
+        >
+          <span v-if="isSubmitting">Connecting to Node...</span>
+          <span v-else-if="!hasMinimumBalance">Cannot Activate: Balance &lt; 100k {{ nativeTokenName }}</span>
+          <span v-else-if="!isLinked">Cannot Activate: Not Linked</span>
+          <span v-else-if="!isHarvesterRegistered">Cannot Activate: Not Registered</span>
+          <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
+          <span v-else>Activate on Validator Node &rarr;</span>
+        </button>
+
+        <!-- Result Message Box -->
+        <div v-if="nodeMessage" class="p-2.5 rounded text-xs" :class="nodeSuccess ? 'bg-emerald-900/60 border border-emerald-500 text-emerald-200' : 'bg-red-900/60 border border-red-500 text-red-200'">
+          <div class="font-bold mb-0.5">{{ nodeSuccess ? 'Success' : 'Error' }}</div>
+          <div>{{ nodeMessage }}</div>
+        </div>
+
+        <!-- Node Connected Status -->
+        <div class="mt-4 pt-3 border-t border-navy-lighter/40 flex items-center justify-between text-xs text-gray-300">
+          <span class="text-gray-400">Target Node:</span>
+          <span class="font-mono text-white font-semibold truncate ml-2">{{ targetNodeUrl }}</span>
+        </div>
+
+        <!-- Cancel Link (identical to ViewHarvesterTxn.vue) -->
+        <div class="text-center mt-3 pt-2">
+          <router-link
+            :to="{ name: 'ViewServices' }"
+            class="content-center text-xs text-white border-b-2 border-white hover:text-gray-200"
+          >{{ $t("general.cancel") }}</router-link>
+        </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </TransactionLayout>
 </template>
 
 <script setup lang="ts">
@@ -414,6 +413,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { useI18n } from "vue-i18n";
+import TransactionLayout from "@/components/TransactionLayout.vue";
 import SelectInputAccount from "@/components/SelectInputAccount.vue";
 import { walletState } from "@/state/walletState";
 import { AppState } from "@/state/appState";
