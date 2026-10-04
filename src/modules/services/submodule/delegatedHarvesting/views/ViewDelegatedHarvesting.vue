@@ -149,13 +149,6 @@
           <div v-else class="space-y-2.5">
             <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-xs space-y-2">
               <div>
-                <span class="text-blue-700 font-semibold block text-xxs uppercase">Generated Remote Public Key (On-Chain)</span>
-                <div class="font-mono text-xs break-all text-blue-900 font-semibold mt-0.5">
-                  {{ ephemeralRemotePubKey }}
-                </div>
-              </div>
-
-              <div class="pt-2 border-t border-blue-200">
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-blue-700 font-semibold text-xxs uppercase">Remote Private Key (Required for Step 4)</span>
                   <div class="flex items-center gap-1.5">
@@ -345,10 +338,6 @@
               >
                 {{ showKey ? 'Hide' : 'Show' }}
               </button>
-            </div>
-            <div v-if="derivedRemotePubKey" class="text-xxs text-gray-500 flex items-center justify-between pt-0.5">
-              <span>Derived Public Key:</span>
-              <span class="font-mono font-semibold">{{ derivedRemotePubKey.slice(0, 12) }}...{{ derivedRemotePubKey.slice(-12) }}</span>
             </div>
           </div>
 
