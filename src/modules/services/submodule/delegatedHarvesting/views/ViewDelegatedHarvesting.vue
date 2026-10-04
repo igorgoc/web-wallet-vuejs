@@ -3,7 +3,7 @@
     <template #white>
       <div class="flex items-center justify-between mb-4">
         <div class="font-semibold text-sm md:text-base text-gray-800">
-          Delegated Staking & Node Harvesting
+          Delegated Staking
         </div>
         <div class="flex items-center gap-1.5 text-xs text-green-700 bg-green-100 px-2.5 py-1 rounded-full font-semibold">
           <span>🛡️</span>

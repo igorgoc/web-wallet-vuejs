@@ -6,7 +6,7 @@ export const DelegatedHarvestingRoutes: RouteRecordRaw[] = [
     name: 'ViewDelegatedHarvesting',
     component: () => import('@/modules/services/submodule/delegatedHarvesting/views/ViewDelegatedHarvesting.vue'),
     meta: {
-      title: "Delegated Staking & Node Harvesting",
+      title: "Delegated Staking",
     }
   }
 ];
