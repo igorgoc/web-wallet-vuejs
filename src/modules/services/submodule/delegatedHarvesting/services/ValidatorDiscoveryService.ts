@@ -6,6 +6,7 @@ import {
   UInt64,
   AccountMetadataTransaction,
   Deadline,
+  PublicAccount,
 } from "tsjs-xpx-chain-sdk";
 
 export interface ValidatorCandidate {
@@ -268,13 +269,19 @@ export class ValidatorDiscoveryService {
     const keyHex = Convert.utf8ToHex(VALIDATOR_SCOPED_KEY_UTF8);
     const scopedKey = UInt64.fromHex(keyHex);
 
+    const networkType = AppState.networkType || 184;
+    const targetPublicAccount = PublicAccount.createFromPublicKey(
+      targetPublicKeyHex,
+      networkType
+    );
+
     return AccountMetadataTransaction.create(
       Deadline.create(),
-      targetPublicKeyHex,
+      targetPublicAccount,
       scopedKey,
-      payloadStr.length,
-      Convert.utf8ToHex(payloadStr),
-      AppState.networkType || 184
+      payloadStr,
+      "",
+      networkType
     );
   }
 }

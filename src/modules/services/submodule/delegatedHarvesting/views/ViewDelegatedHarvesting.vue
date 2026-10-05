@@ -1245,8 +1245,9 @@ const refreshAccountDetails = async () => {
     }
 
     // 3. Maturation check (snapshots with 0 balance)
-    if (accInfo.snapshots && accInfo.snapshots.length > 0) {
-      const hasZero = accInfo.snapshots.some(
+    const accSnapshots = (accInfo as any).snapshots;
+    if (accSnapshots && accSnapshots.length > 0) {
+      const hasZero = accSnapshots.some(
         (s: any) => s.amount === "0" || s.amount === 0
       );
       isMaturing.value = hasZero;
