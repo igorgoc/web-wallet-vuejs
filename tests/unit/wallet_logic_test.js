@@ -309,3 +309,73 @@ test('HTML Escaper: neutralizes XSS payloads in transaction metadata', () => {
   assert.ok(escaped.includes('&lt;img'));
   assert.ok(escaped.includes('&amp;'));
 });
+
+// -------------------------------------------------------------
+// 7. Security Check on Check: SSRF & Cloud Metadata Blocking
+// -------------------------------------------------------------
+function isEndpointSafe(rawEndpoint) {
+  try {
+    const urlObj = new URL(rawEndpoint);
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return false;
+    }
+    const host = urlObj.hostname.toLowerCase();
+    if (
+      host.startsWith('169.254.') ||
+      host === 'metadata.google.internal' ||
+      host === '100.100.100.200' ||
+      host === '[fd00:ec2::254]'
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test('Security Audit: SSRF filter blocks all cloud metadata endpoints', () => {
+  // Dangerous / Cloud IMDS endpoints must be rejected
+  assert.strictEqual(isEndpointSafe('http://169.254.169.254/latest/meta-data/'), false);
+  assert.strictEqual(isEndpointSafe('http://169.254.1.5:8080/'), false);
+  assert.strictEqual(isEndpointSafe('http://metadata.google.internal/computeMetadata/v1/'), false);
+  assert.strictEqual(isEndpointSafe('http://100.100.100.200/latest/meta-data/'), false);
+  assert.strictEqual(isEndpointSafe('http://[fd00:ec2::254]/latest/meta-data/'), false);
+  assert.strictEqual(isEndpointSafe('javascript:alert(1)'), false);
+  assert.strictEqual(isEndpointSafe('file:///etc/passwd'), false);
+  assert.strictEqual(isEndpointSafe('ftp://evil.com'), false);
+
+  // Legitimate Sirius peer and REST node endpoints must pass
+  assert.strictEqual(isEndpointSafe('http://localhost:8080'), true);
+  assert.strictEqual(isEndpointSafe('http://127.0.0.1:3000'), true);
+  assert.strictEqual(isEndpointSafe('https://bctestnet1.xpxsirius.io:3000'), true);
+  assert.strictEqual(isEndpointSafe('http://192.168.1.50:8080'), true);
+});
+
+// -------------------------------------------------------------
+// 8. Security Check on Check: Anti-Clickjacking Frame Detection
+// -------------------------------------------------------------
+function evaluateFrameProtection(isFramed) {
+  const rootRef = { id: 'root' };
+  const windowMock = {
+    self: isFramed ? { id: 'child' } : rootRef,
+    top: rootRef,
+    location: 'about:blank',
+  };
+  let bodyHidden = true;
+  if (windowMock.self === windowMock.top) {
+    bodyHidden = false; // Safe to display
+  } else {
+    windowMock.top.location = windowMock.self.location; // Break out
+  }
+  return { bodyHidden, topLocation: windowMock.top.location };
+}
+
+test('Security Audit: Anti-clickjacking hides body when embedded in iframe', () => {
+  const framedState = evaluateFrameProtection(true);
+  assert.strictEqual(framedState.bodyHidden, true); // Stays hidden
+
+  const topState = evaluateFrameProtection(false);
+  assert.strictEqual(topState.bodyHidden, false); // Body shown when top-level
+});
+

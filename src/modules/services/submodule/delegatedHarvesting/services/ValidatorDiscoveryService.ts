@@ -107,8 +107,16 @@ export class ValidatorDiscoveryService {
               if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
                 continue;
               }
-              // Filter out cloud metadata loopback address
-              if (urlObj.hostname === "169.254.169.254") continue;
+              // Filter out cloud metadata services and link-local ranges (AWS, GCP, Azure, Alibaba, OpenStack)
+              const host = urlObj.hostname.toLowerCase();
+              if (
+                host.startsWith("169.254.") ||
+                host === "metadata.google.internal" ||
+                host === "100.100.100.200" ||
+                host === "[fd00:ec2::254]"
+              ) {
+                continue;
+              }
             } catch {
               continue; // Reject malformed URLs
             }
