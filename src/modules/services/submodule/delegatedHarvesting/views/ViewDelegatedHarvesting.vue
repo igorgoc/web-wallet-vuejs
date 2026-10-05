@@ -60,6 +60,64 @@
           </div>
         </div>
 
+        <!-- Live Staking & Delegator Rewards Status Card -->
+        <div v-if="isLinked || isHarvesterRegistered" class="border border-blue-200 rounded p-4 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🌾</span>
+              <span class="text-xs font-bold text-blue-900 uppercase tracking-wider">Delegated Staking Dashboard</span>
+            </div>
+            <span v-if="isHarvesterRegistered && isKeyHotloadedOnNode" class="text-xxs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full font-bold flex items-center gap-1">
+              🟢 Actively Harvesting
+            </span>
+            <span v-else-if="isHarvesterRegistered" class="text-xxs px-2.5 py-0.5 bg-blue-100 text-blue-800 border border-blue-300 rounded-full font-bold">
+              🔵 Registered Harvester
+            </span>
+            <span v-else class="text-xxs px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-full font-bold">
+              🟡 Key Linked (Pending Registration)
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div class="bg-white/80 border border-blue-100 p-2 rounded">
+              <span class="text-gray-500 text-xxs block">Staking Balance</span>
+              <span class="font-bold text-gray-800">{{ formatNumber(accountBalance) }} {{ nativeTokenName }}</span>
+            </div>
+            <div class="bg-white/80 border border-blue-100 p-2 rounded">
+              <span class="text-gray-500 text-xxs block">Harvester Status</span>
+              <span class="font-bold" :class="isHarvesterRegistered ? 'text-emerald-700' : 'text-gray-600'">
+                {{ isHarvesterRegistered ? 'Active Committee' : 'Not Registered' }}
+              </span>
+            </div>
+            <div class="bg-white/80 border border-blue-100 p-2 rounded">
+              <span class="text-gray-500 text-xxs block">Last Signed Block</span>
+              <span class="font-mono font-bold text-blue-800">
+                {{ lastSignedBlockHeight > 0 ? '#' + formatNumber(lastSignedBlockHeight) : '—' }}
+              </span>
+            </div>
+            <div class="bg-white/80 border border-blue-100 p-2 rounded">
+              <span class="text-gray-500 text-xxs block">Connected Node</span>
+              <span class="font-semibold text-gray-800 truncate block" :title="targetNodeUrl">
+                {{ isKeyHotloadedOnNode ? '✓ ' + (selectedValidator ? selectedValidator.name : 'Connected') : 'Awaiting Step 4' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Deactivation / Revoke Quick Action -->
+          <div v-if="isLinked" class="pt-2 border-t border-blue-200/60 flex items-center justify-between text-xs">
+            <span class="text-gray-600 text-xxs">Need to change validator or reclaim funds?</span>
+            <button
+              type="button"
+              @click="deactivateAndUnlink"
+              :disabled="isDeactivating"
+              class="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 rounded text-xxs font-semibold transition cursor-pointer flex items-center gap-1"
+            >
+              <font-awesome-icon icon="times" class="text-xxs" />
+              <span>{{ isDeactivating ? 'Deactivating...' : 'Deactivate & Stop Delegating' }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Step 2: Link Remote Key -->
         <div class="border border-gray-200 rounded p-4 bg-white shadow-sm">
           <div class="flex items-center justify-between mb-2">
@@ -901,6 +959,69 @@ const customNodeUrl = ref<string>("http://localhost:8080");
 const isProbingCustom = ref<boolean>(false);
 const customProbeResult = ref<VerifiedValidator | null>(null);
 
+const isDeactivating = ref<boolean>(false);
+const isKeyHotloadedOnNode = ref<boolean>(false);
+const lastSignedBlockHeight = ref<number>(0);
+
+const checkNodeHotloadStatus = async () => {
+  if (!targetNodeUrl.value) return;
+  try {
+    const res = await fetch(`${targetNodeUrl.value}/api/harvesting/delegated/list`);
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list)) {
+        const targetPub = linkedRemotePubKey.value.toUpperCase();
+        isKeyHotloadedOnNode.value = list.some(
+          (k: any) =>
+            (k.harvesterPublicKey && k.harvesterPublicKey.toUpperCase() === targetPub) ||
+            (k.fileName && selectedAddress.value && k.fileName.includes(selectedAddress.value))
+        );
+      }
+    }
+  } catch {
+    isKeyHotloadedOnNode.value = false;
+  }
+};
+
+const deactivateAndUnlink = async () => {
+  if (
+    !confirm(
+      "Are you sure you want to stop delegated staking? This will remove your remote key from the validator node and prompt an on-chain Unlink transaction."
+    )
+  ) {
+    return;
+  }
+  isDeactivating.value = true;
+  try {
+    const safeName = selectedAddress.value || linkedRemotePubKey.value;
+    if (safeName && targetNodeUrl.value) {
+      try {
+        await fetch(`${targetNodeUrl.value}/api/harvesting/delegated/remove`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileName: safeName + ".key" }),
+        });
+      } catch (nodeErr) {
+        console.warn("Failed to remove key from validator node:", nodeErr);
+      }
+    }
+
+    isKeyHotloadedOnNode.value = false;
+    toast.add({
+      severity: "info",
+      summary: "Node Key Removed",
+      detail: "Remote key removed from validator node. Now initiating on-chain Unlink...",
+      life: 4000,
+    });
+
+    broadcastUnlink();
+  } catch (err: any) {
+    console.error("Deactivation error:", err);
+  } finally {
+    isDeactivating.value = false;
+  }
+};
+
 const refreshValidators = async () => {
   isDiscoveringNodes.value = true;
   try {
@@ -1145,10 +1266,18 @@ const refreshAccountDetails = async () => {
             Helper.createPublicAccount(targetHarvKey, AppState.networkType)
           );
         isHarvesterRegistered.value = harvInfo && harvInfo.length > 0;
+        if (harvInfo && harvInfo.length > 0) {
+          const first = harvInfo[0];
+          lastSignedBlockHeight.value = first.lastSigningBlockHeight ? first.lastSigningBlockHeight.compact() : 0;
+        } else {
+          lastSignedBlockHeight.value = 0;
+        }
       } catch {
         isHarvesterRegistered.value = false;
+        lastSignedBlockHeight.value = 0;
       }
     }
+    await checkNodeHotloadStatus();
   } catch (err) {
     console.error("Error refreshing account details:", err);
   }
@@ -1271,6 +1400,7 @@ const submitKeyToNode = async () => {
     if (res.ok && data.status === "success") {
       nodeSuccess.value = true;
       nodeMessage.value = `Successfully hot-loaded into node! Harvester Public Key: ${data.harvesterPublicKey}`;
+      isKeyHotloadedOnNode.value = true;
       toast.add({
         severity: "success",
         summary: "Node Connected",
