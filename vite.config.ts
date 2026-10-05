@@ -50,18 +50,24 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
-      chunkSizeWarningLimit: 1200,
+      chunkSizeWarningLimit: 2500,
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
               if (
                 id.includes("tsjs-xpx-chain-sdk") ||
+                id.includes("crypto-js") ||
+                id.includes("jose") ||
+                id.includes("ethers") ||
+                id.includes("@noble") ||
                 id.includes("@js-joda") ||
                 id.includes("decimal.js") ||
-                id.includes("bn.js")
+                id.includes("bn.js") ||
+                id.includes("rxjs") ||
+                id.includes("tslib")
               ) {
-                return "vendor-sirius-sdk";
+                return "vendor-chain-core";
               }
               if (
                 id.includes("mathjs") ||
@@ -70,9 +76,6 @@ export default defineConfig(({ command, mode }) => {
                 id.includes("fraction.js")
               ) {
                 return "vendor-math";
-              }
-              if (id.includes("ethers") || id.includes("@noble")) {
-                return "vendor-ethers";
               }
               if (id.includes("primevue") || id.includes("@fortawesome")) {
                 return "vendor-ui";
@@ -85,14 +88,6 @@ export default defineConfig(({ command, mode }) => {
                 id.includes("/@vue/")
               ) {
                 return "vendor-vue";
-              }
-              if (
-                id.includes("crypto-js") ||
-                id.includes("jose") ||
-                id.includes("dompurify") ||
-                id.includes("buffer")
-              ) {
-                return "vendor-crypto";
               }
             }
           },
