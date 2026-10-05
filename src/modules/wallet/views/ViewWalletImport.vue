@@ -63,11 +63,14 @@ const selectedNetworkType = computed(() => AppState.networkType);
 const selectedNetworkName = computed(() => networkState.chainNetworkName);
 const walletFile = ref("");
 const readWalletBackup = (e) => {
+  if (!e.target.files || e.target.files.length === 0) {
+    return;
+  }
   const file = e.target.files[0];
   const reader = new FileReader();
   reader.onload = (e) => {
-    const file = CryptoJS.enc.Base64.parse(e.target.result);
     try {
+      const file = CryptoJS.enc.Base64.parse(e.target.result);
       const dataDecryp = JSON.parse(file.toString(CryptoJS.enc.Utf8));
 
       if (
@@ -90,7 +93,9 @@ const readWalletBackup = (e) => {
               group: "br-custom",
               life: 3000,
             });
-            router.push({ name: "Home" });
+            if (importResult.status === "success") {
+              router.push({ name: "Home" });
+            }
           },
         });
       } else {
@@ -101,6 +106,9 @@ const readWalletBackup = (e) => {
           group: "br-custom",
           life: 3000,
         });
+        if (importResult.status === "success") {
+          router.push({ name: "Home" });
+        }
       }
     } catch (error) {
       let failMsg = t("wallet.importFail");

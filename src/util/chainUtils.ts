@@ -19,6 +19,10 @@ const currentNetworkType = computed(() => AppState.networkType);
 export class ChainUtils{
 
     static buildWSEndpoint(endpoint :string, port: number | undefined){
+      if (!endpoint) return "";
+      if (endpoint.startsWith("ws://") || endpoint.startsWith("wss://")) {
+        return endpoint;
+      }
 
       const protocols = ["https:", "file:"];
 
@@ -31,11 +35,13 @@ export class ChainUtils{
       }
 
       return `${requestProtocol}://${endpoint}${usePort ? ":" + usePort : ""}`;
-
-      // return location.protocol=='https:' ? `wss://${endpoint}` : `ws://${endpoint}:${port}`;
     }
 
     static buildAPIEndpoint(endpoint :string, port: number | undefined){
+      if (!endpoint) return "";
+      if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
+        return endpoint;
+      }
 
       const protocols = ["https:", "file:"];
 
@@ -48,8 +54,6 @@ export class ChainUtils{
       }
 
       return `${requestProtocol}://${endpoint}${usePort ? ":" + usePort : ""}`;
-
-      //return location.protocol=='https:' ? `https://${endpoint}` : `http://${endpoint}:${port}`;
     }
 
     static async getChainConfig(chainHeight: number, chainConfigAPI: ChainConfigAPI): Promise<NetworkConfig| string>{

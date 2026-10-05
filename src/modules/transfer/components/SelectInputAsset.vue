@@ -98,10 +98,10 @@ const onLazyLoad = async (event: VirtualScrollerLazyEvent) => {
     loading.value = true;
 
     const { first, last } = event;
-    const selectedMosaicIds: MosaicId[] = []
-
-    for (let i = first; i < last; i++) {
-        if (assetOptions.value[i].hasUpdated) {
+    const selectedMosaicIds: MosaicId[] = [];
+    const end = Math.min(last, assetOptions.value.length);
+    for (let i = first; i < end; i++) {
+        if (!assetOptions.value[i] || assetOptions.value[i].hasUpdated) {
             continue;
         }
         selectedMosaicIds.push(new MosaicId(assetOptions.value[i].id))
@@ -113,36 +113,31 @@ const onLazyLoad = async (event: VirtualScrollerLazyEvent) => {
     const names = await AppState.chainAPI.assetAPI.getMosaicsNames(selectedMosaicIds)
     const assetProperties = await AppState.chainAPI.assetAPI.getMosaics(selectedMosaicIds)
 
-    let nameIndex = 0;
-    let propertyIndex = 0;
-    const indexMap = new Map<string, number>();
-    names.forEach((mosaic, index) => {
-        indexMap.set(mosaic.mosaicId.toHex(), index);
+    const namesMap = new Map<string, string>();
+    names.forEach((mosaic) => {
+        namesMap.set(mosaic.mosaicId.toHex(), mosaic.names.length ? mosaic.names[0].name : '');
     });
 
-    assetProperties.sort((a, b) => {
-        const indexA = indexMap.get(a.mosaicId.toHex());
-        const indexB = indexMap.get(b.mosaicId.toHex());
-        return indexA - indexB;
+    const propsMap = new Map<string, number>();
+    assetProperties.forEach((prop) => {
+        propsMap.set(prop.mosaicId.toHex(), prop.divisibility);
     });
 
-    for (let i = first; i < last; i++) {
-        if (!names[nameIndex]) {
+    for (let i = first; i < end; i++) {
+        const asset = assetOptions.value[i];
+        if (!asset || asset.hasUpdated) {
             continue;
         }
-        const asset = assetOptions.value.find(asset => asset.id == names[nameIndex].mosaicId.toHex())
-        if (!asset) {
-            continue;
+        if (namesMap.has(asset.id)) {
+            asset.namespace = namesMap.get(asset.id) || '';
         }
-        asset.namespace = names[nameIndex].names.length ? names[nameIndex].names[0].name : '';
-        asset.balance = asset.balance / Math.pow(10, assetProperties[propertyIndex].divisibility)
-        asset.divisibility = assetProperties[propertyIndex].divisibility
-        asset.hasUpdated = true;
-
-        nameIndex++
-        propertyIndex++
+        if (propsMap.has(asset.id)) {
+            const divisibility = propsMap.get(asset.id)!;
+            asset.balance = asset.balance / Math.pow(10, divisibility);
+            asset.divisibility = divisibility;
+            asset.hasUpdated = true;
+        }
     }
-
 
     loading.value = false;
 

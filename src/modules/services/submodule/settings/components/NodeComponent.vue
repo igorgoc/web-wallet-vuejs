@@ -75,16 +75,17 @@ watch(
     if (n) {
       selected.value = {
         name: NetworkStateUtils.buildAPIEndpointURL(n),
-        value: NetworkStateUtils.buildAPIEndpointURL(n),
+        value: n,
       };
     }
   },
   { immediate: true }
 );
 const makeNodeSelection = async (event: DropdownChangeEvent) => {
-  if (event.value.value != networkState.selectedAPIEndpoint) {
+  const selectedNode = typeof event.value === 'object' && event.value !== null ? event.value.value : event.value;
+  if (selectedNode && selectedNode != networkState.selectedAPIEndpoint) {
     showSelectTitle.value = true;
-    NetworkStateUtils.updateChainNode(event.value);
+    NetworkStateUtils.updateChainNode(selectedNode);
     await WalletUtils.refreshAllAccountDetails(
       walletState.currentLoggedInWallet,
       networkState.currentNetworkProfile

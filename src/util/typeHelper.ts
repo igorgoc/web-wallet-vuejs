@@ -195,7 +195,14 @@ export class Helper {
     }
 
     static amountFormatterSimple(amount: number, d: number = 6): string {
-        const amountDivisibility = Number(amount) / Math.pow(10, d);
+        const val = Number(amount);
+        if (amount == null || isNaN(val)) {
+            return (0).toLocaleString('en-us', {
+                minimumFractionDigits: d,
+                maximumFractionDigits: d
+            });
+        }
+        const amountDivisibility = val / Math.pow(10, d);
         return amountDivisibility.toLocaleString('en-us', {
             minimumFractionDigits: d
         });
@@ -264,8 +271,7 @@ export class Helper {
     }
 
     static convertToAbsolute = (value: number, divisibility: number): number => {
-
-        return value * Math.pow(10, divisibility);
+        return Math.round(value * Math.pow(10, divisibility));
     }
 
     static convertNumberMinimumFormat(value: number, decimalPoint: number) {

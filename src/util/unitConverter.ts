@@ -58,7 +58,7 @@ export class UnitConverter{
         const unit = mathjs.unit(minutes, 'minute');
         let finalUnit: string = '';
 
-        if(timeUnit > TimeUnit.HOUR){
+        if(timeUnit > TimeUnit.MINUTE){
             throw new Error('Cannot convert to upper class of unit');
         }
 
@@ -93,6 +93,10 @@ export class UnitConverter{
         }
         else if(configUnit.search('s') > -1){
             unitName = 'second';
+        }
+
+        if(!unitName){
+            return isNaN(unitAmount) ? 0 : unitAmount;
         }
 
         let unit = mathjs.unit(unitAmount, unitName);

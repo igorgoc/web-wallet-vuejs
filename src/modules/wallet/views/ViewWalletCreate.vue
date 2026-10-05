@@ -273,7 +273,7 @@ const publicKey = ref("");
 const accName = ref("");
 const themeConfig = new ThemeStyleConfig("ThemeStyleConfig");
 themeConfig.init();
-const svgString = ref(toSvg(address.value, 75, themeConfig.jdenticonConfig));
+const svgString = computed(() => toSvg(address.value, 75, themeConfig.jdenticonConfig));
 const copy = (id :string) => {
   let stringToCopy = document.getElementById(id).getAttribute("copyValue");
   let copySubject = document.getElementById(id).getAttribute("copySubject");

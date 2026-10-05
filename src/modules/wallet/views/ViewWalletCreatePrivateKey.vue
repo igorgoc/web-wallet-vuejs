@@ -287,7 +287,7 @@ const publicKey = ref("");
 const accName = ref("");
 const themeConfig = new ThemeStyleConfig("ThemeStyleConfig");
 themeConfig.init();
-const svgString = ref(toSvg(address.value, 100, themeConfig.jdenticonConfig));
+const svgString = computed(() => toSvg(address.value, 100, themeConfig.jdenticonConfig));
 const copy = (id :string) => {
   let stringToCopy = document.getElementById(id).getAttribute("copyValue");
   let copySubject = document.getElementById(id).getAttribute("copySubject");
@@ -314,7 +314,8 @@ const onSubmit = handleSubmit(({ name, password,privKey }) => {
   } else {
     let pass = WalletUtils.createPassword(password);
 
-    if (privKey.substring(0, 2) == "0x") {
+    privKey = privKey.trim();
+    if (privKey.substring(0, 2).toLowerCase() == "0x") {
       privKey = privKey.substring(2);
     }
     const walletAccount = WalletUtils.addNewWalletWithPrivateKey(
