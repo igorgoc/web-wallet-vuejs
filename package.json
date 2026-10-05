@@ -12,7 +12,7 @@
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "test": "npx nightwatch --config tests/config/nightwatch.conf.js --headless --no-sandbox tests",
-    "test:unit": "node --test tests/unit/",
+    "test:unit": "node --test 'tests/unit/*_test.js'",
     "test:perf": "node tests/perf/perf_benchmark.mjs"
   },
   "dependencies": {
