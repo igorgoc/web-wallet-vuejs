@@ -78,16 +78,10 @@
             </span>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div class="bg-white/80 border border-blue-100 p-2 rounded">
               <span class="text-gray-500 text-xxs block">Staking Balance</span>
               <span class="font-bold text-gray-800">{{ formatNumber(accountBalance) }} {{ nativeTokenName }}</span>
-            </div>
-            <div class="bg-white/80 border border-blue-100 p-2 rounded">
-              <span class="text-gray-500 text-xxs block">Harvester Status</span>
-              <span class="font-bold" :class="isHarvesterRegistered ? 'text-emerald-700' : 'text-gray-600'">
-                {{ isHarvesterRegistered ? 'Active Committee' : 'Not Registered' }}
-              </span>
             </div>
             <div class="bg-white/80 border border-blue-100 p-2 rounded">
               <span class="text-gray-500 text-xxs block">Last Signed Block</span>
