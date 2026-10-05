@@ -1,7 +1,5 @@
-import jsPDF from 'jspdf';
 import qrcode from 'qrcode-generator';
 import { Account, Address, AggregateTransaction, SignedTransaction } from "tsjs-xpx-chain-sdk";
-import { pdfImg } from '@/modules/services/submodule/mainnetSwap/pdfBackground';
 import { walletState } from '@/state/walletState';
 import { networkState } from '@/state/networkState';
 import { WalletUtils } from "@/util/walletUtils";
@@ -655,7 +653,11 @@ export class SwapUtils {
     return qr.createDataURL();
   }
 
-  static generateIncomingPdfCert = (networkName: string, swapTimestamp: string, siriusAddress: string, swapToken: string, transactionHash: string, qrImage: string) => {
+  static generateIncomingPdfCert = async (networkName: string, swapTimestamp: string, siriusAddress: string, swapToken: string, transactionHash: string, qrImage: string) => {
+    const [{ default: jsPDF }, { pdfImg }] = await Promise.all([
+      import('jspdf'),
+      import('@/modules/services/submodule/mainnetSwap/pdfBackground')
+    ]);
     const imgData = pdfImg;
     let doc = new jsPDF({
       orientation: 'landscape',
@@ -689,7 +691,11 @@ export class SwapUtils {
     doc.save('swap_certificate.pdf');
   }
 
-  static generateoutgoingPdfCert = (networkName: string, swapTimestamp: string, siriusAddress: string, swapId: string, transactionHash: string, qrImage: string, siriusTxHash: string) => {
+  static generateoutgoingPdfCert = async (networkName: string, swapTimestamp: string, siriusAddress: string, swapId: string, transactionHash: string, qrImage: string, siriusTxHash: string) => {
+    const [{ default: jsPDF }, { pdfImg }] = await Promise.all([
+      import('jspdf'),
+      import('@/modules/services/submodule/mainnetSwap/pdfBackground')
+    ]);
     const imgData = pdfImg;
     let doc = new jsPDF({
       orientation: 'landscape',

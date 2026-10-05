@@ -218,9 +218,7 @@ import { Account } from "tsjs-xpx-chain-sdk";
 import { AppState } from "@/state/appState";
 import { ThemeStyleConfig } from "@/models/stores/themeStyleConfig";
 import { toSvg } from "jdenticon";
-import jsPDF from "jspdf";
 import qrcode from "qrcode-generator";
-import { pdfWalletPaperImg } from "@/modules/account/pdfPaperWalletBackground";
 import Dialog from "primevue/dialog";
 import { useField, useForm } from "vee-validate";
 import { toTypedSchema } from "@vee-validate/zod";
@@ -330,7 +328,11 @@ const generateQR = (url, size = 2, margin = 0) => {
   qr.make();
   return qr.createDataURL(size, margin);
 };
-const saveWalletPaper = () => {
+const saveWalletPaper = async () => {
+  const [{ default: jsPDF }, { pdfWalletPaperImg }] = await Promise.all([
+    import("jspdf"),
+    import("@/modules/account/pdfPaperWalletBackground"),
+  ]);
   const doc = new jsPDF({
     unit: "px",
   });

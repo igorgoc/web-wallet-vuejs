@@ -24,9 +24,9 @@ import Tooltip from "primevue/tooltip";
 // Import Font Awesome Icons
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
-  fas, faTimes, faEye, faEyeSlash, faLock, faWallet, faKey, faCheck, faExclamation, faBars, faCopy, faSignOutAlt, faCaretDown, faEdit, faTimesCircle, faCheckCircle, faTrashAlt, faIdCardAlt, faDownload,
+  faTimes, faEye, faEyeSlash, faLock, faWallet, faKey, faCheck, faExclamation, faBars, faCopy, faSignOutAlt, faCaretDown, faEdit, faTimesCircle, faCheckCircle, faTrashAlt, faIdCardAlt, faDownload,
   faCoins, faComment, faBell, faCircle, faChevronUp, faChevronDown, faTrashRestore, faFileExport, faFileImport, faArrowRight, faArrowCircleRight, faAngleRight, faAt, faEquals, faNotEqual, faLink, faUnlink,
-  faExternalLinkAlt, faHashtag, faShoppingBag
+  faExternalLinkAlt, faHashtag, faShoppingBag, faPlus, faSearch, faSyncAlt, faTag, faTrash, faAddressBook, faArrowRightFromBracket, faGear, faHome, faRightLeft, faShare, faToolbox, faUserGroup
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import ConfirmDialog from 'primevue/confirmdialog';
@@ -45,8 +45,9 @@ import Sidebar from 'primevue/sidebar'
 import Tree from 'primevue/tree'
 
 library.add(
-  fas, faTimes, faEye, faEyeSlash, faLock, faWallet, faKey, faCheck, faExclamation, faBars, faCopy, faSignOutAlt, faCaretDown, faEdit, faTimesCircle, faCheckCircle, faTrashAlt, faIdCardAlt, faDownload,
-  faCoins, faComment, faBell, faCircle, faChevronUp, faChevronDown, faTrashRestore, faFileExport, faFileImport, faArrowRight, faArrowCircleRight, faAngleRight, faAt, faEquals, faNotEqual, faLink, faUnlink, faExternalLinkAlt, faHashtag, faShoppingBag
+  faTimes, faEye, faEyeSlash, faLock, faWallet, faKey, faCheck, faExclamation, faBars, faCopy, faSignOutAlt, faCaretDown, faEdit, faTimesCircle, faCheckCircle, faTrashAlt, faIdCardAlt, faDownload,
+  faCoins, faComment, faBell, faCircle, faChevronUp, faChevronDown, faTrashRestore, faFileExport, faFileImport, faArrowRight, faArrowCircleRight, faAngleRight, faAt, faEquals, faNotEqual, faLink, faUnlink,
+  faExternalLinkAlt, faHashtag, faShoppingBag, faPlus, faSearch, faSyncAlt, faTag, faTrash, faAddressBook, faArrowRightFromBracket, faGear, faHome, faRightLeft, faShare, faToolbox, faUserGroup
 );
 const app = createApp(App);
 const emitter = mitt();
