@@ -12,9 +12,8 @@
       </div>
 
       <!-- Overview Info Callout -->
-      <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900 leading-relaxed">
-        Delegate your account's harvesting stake (≥ 100,000 {{ nativeTokenName }}) to a community validator node.
-        Your funds never leave your wallet, and block rewards are deposited directly into your account on-chain.
+      <div class="mb-5 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900">
+        Stake ≥ 100k {{ nativeTokenName }} with a community validator to earn block rewards directly into your wallet.
       </div>
 
       <div class="space-y-6">
