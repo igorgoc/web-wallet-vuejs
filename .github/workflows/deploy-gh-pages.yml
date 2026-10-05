@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/delegated-staking-pool
   workflow_dispatch:
 
 # Enforce least-privilege permissions for GitHub Pages deployment
