@@ -1,4 +1,5 @@
 import { AppState } from "@/state/appState";
+import { Helper } from "@/util/typeHelper";
 import {
   Convert,
   MetadataQueryParams,
@@ -100,15 +101,40 @@ export class ValidatorDiscoveryService {
           }
 
           if (parsed && (parsed.endpoint || parsed.url)) {
-            const rawEndpoint = (parsed.endpoint || parsed.url).trim().replace(/\/+$/, "");
-            const targetPub = (entry as any).targetKey?.publicKey || (entry as any).targetId?.toHex?.() || "";
+            const rawEndpoint = String(parsed.endpoint || parsed.url).trim().replace(/\/+$/, "");
+            try {
+              const urlObj = new URL(rawEndpoint);
+              if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+                continue;
+              }
+              // Filter out cloud metadata loopback address
+              if (urlObj.hostname === "169.254.169.254") continue;
+            } catch {
+              continue; // Reject malformed URLs
+            }
+
+            const targetPub = String((entry as any).targetKey?.publicKey || (entry as any).targetId?.toHex?.() || "");
+            const cleanName = Helper.escapeHtml(String(parsed.name || `Sirius Node (${targetPub.slice(0, 6)}...)`)).slice(0, 64);
+            const cleanLocation = Helper.escapeHtml(String(parsed.location || "Global")).slice(0, 32);
+
+            let cleanRestEndpoint: string | undefined = undefined;
+            if (parsed.restEndpoint) {
+              const rawRest = String(parsed.restEndpoint).trim().replace(/\/+$/, "");
+              try {
+                const restUrl = new URL(rawRest);
+                if (restUrl.protocol === "http:" || restUrl.protocol === "https:") {
+                  cleanRestEndpoint = rawRest;
+                }
+              } catch {}
+            }
+
             candidates.push({
               id: `onchain-${targetPub.slice(0, 8)}-${candidates.length}`,
-              name: parsed.name || `Sirius Node (${targetPub.slice(0, 6)}...)`,
+              name: cleanName,
               endpoint: rawEndpoint,
-              restEndpoint: parsed.restEndpoint ? parsed.restEndpoint.trim().replace(/\/+$/, "") : undefined,
+              restEndpoint: cleanRestEndpoint,
               nodePublicKey: parsed.nodePublicKey || parsed.harvestPublicKey || targetPub,
-              location: parsed.location || "Global",
+              location: cleanLocation,
               isDefault: false,
             });
           }
@@ -202,6 +228,17 @@ export class ValidatorDiscoveryService {
       };
     } catch (err: any) {
       const pingMs = Math.round(performance.now() - start);
+      const isMixedContent =
+        typeof location !== "undefined" &&
+        location.protocol === "https:" &&
+        cleanEndpoint.startsWith("http://") &&
+        !cleanEndpoint.includes("localhost") &&
+        !cleanEndpoint.includes("127.0.0.1");
+
+      const statusReason = isMixedContent
+        ? "Blocked: Insecure HTTP node on HTTPS wallet (Mixed Content)"
+        : (err.name === "AbortError" ? "Timeout (>2.5s)" : "Offline / CORS blocked");
+
       return {
         ...candidate,
         online: false,
@@ -210,7 +247,7 @@ export class ValidatorDiscoveryService {
         maxSlots: 0,
         features: [],
         eligible: false,
-        statusReason: err.name === "AbortError" ? "Timeout (>2.5s)" : "Offline / CORS blocked",
+        statusReason,
       };
     }
   }

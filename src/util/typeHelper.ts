@@ -43,6 +43,16 @@ export class Helper {
         return DOMPurify.sanitize(dirty);
     }
 
+    static escapeHtml(text: string): string {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     static createPasswordInstance(password: string) {
         return new Password(password);
     }
