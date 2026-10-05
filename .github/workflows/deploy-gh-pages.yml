@@ -7,6 +7,7 @@ on:
       - feature/delegated-staking-pool
   workflow_dispatch:
 
+# Enforce least-privilege permissions for GitHub Pages deployment
 permissions:
   contents: read
   pages: write
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -35,8 +36,29 @@ jobs:
       - name: Install Dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build Web Wallet (Staging Subdirectory for GitHub Pages)
+      - name: Verify TypeScript Types
+        run: npm run type-check
+
+      - name: Run Cryptographic & Security Unit Tests
+        run: npm run test:unit
+
+      - name: Build Web Wallet for GitHub Pages
         run: npx cross-env VITE_NODE_ENV=staging NODE_OPTIONS=--max-old-space-size=4096 vite build --base ./
+
+      - name: Run Performance Budget & Benchmark Check
+        run: npm run test:perf
+
+      - name: Verify Artifact Integrity & Security Headers
+        run: |
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ ERROR: dist/index.html was not generated!"
+            exit 1
+          fi
+          if ! grep -q "Content-Security-Policy" dist/index.html; then
+            echo "❌ ERROR: Content-Security-Policy meta tag missing from dist/index.html!"
+            exit 1
+          fi
+          echo "✅ Integrity check passed: dist/index.html verified with CSP."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
