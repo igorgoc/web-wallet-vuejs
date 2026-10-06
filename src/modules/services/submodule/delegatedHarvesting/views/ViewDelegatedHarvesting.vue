@@ -497,7 +497,7 @@
             <input 
               :type="showKey ? 'text' : 'password'" 
               v-model="remotePrivateKeyInput" 
-              :placeholder="hasStoredEncryptedKey ? 'Saved encrypted (Click Unlock or Announce below)' : '64-character remote key'" 
+              placeholder="64-character remote key" 
               class="w-full bg-navy-lighter/40 text-white border border-navy-lighter rounded p-2 text-xs font-mono pr-16 placeholder-gray-400 focus:border-blue-primary focus:outline-none"
             />
             <div class="absolute right-3 top-2.5 flex items-center gap-2">
