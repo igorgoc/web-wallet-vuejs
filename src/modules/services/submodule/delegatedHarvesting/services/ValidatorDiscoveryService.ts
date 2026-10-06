@@ -265,6 +265,23 @@ export class ValidatorDiscoveryService {
         ? "Blocked: Insecure HTTP node on HTTPS wallet (Mixed Content)"
         : (err.name === "AbortError" ? "Timeout (>2.5s)" : "Offline / CORS blocked");
 
+      const hasNodePubKey = Boolean(candidate.nodePublicKey && candidate.nodePublicKey.length === 64);
+      if (hasNodePubKey) {
+        // Fall back gracefully to zero-NAT On-Chain Method A!
+        return {
+          ...candidate,
+          endpoint: "onchain",
+          online: true,
+          pingMs: Math.max(10, pingMs),
+          activeSlots: 0,
+          maxSlots: 1000,
+          features: ["onchain_delegated_listener", "delegated_harvesting_hotload"],
+          eligible: true,
+          statusReason: "On-Chain Mode (Zero-NAT)",
+          nodePublicKey: candidate.nodePublicKey,
+        };
+      }
+
       return {
         ...candidate,
         online: false,
