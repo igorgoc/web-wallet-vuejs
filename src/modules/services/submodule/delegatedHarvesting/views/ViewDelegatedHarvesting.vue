@@ -452,7 +452,7 @@
           <div v-if="selectedValidator && selectedValidatorId !== 'custom'" class="mt-1.5 p-2.5 bg-navy-lighter/30 rounded border border-navy-lighter/60 text-xxs space-y-1.5">
             <div class="flex items-center justify-between">
               <span class="text-gray-300">Endpoint:</span>
-              <span class="font-mono text-gray-200 font-semibold">{{ selectedValidator.endpoint }}</span>
+              <span class="font-mono text-gray-200 font-semibold">{{ selectedValidator.endpoint === 'onchain' ? 'On-Chain (Zero Ports / NAT Safe)' : selectedValidator.endpoint }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-gray-300">Roundtrip Latency:</span>
@@ -467,9 +467,10 @@
             <div class="flex items-center justify-between pt-1 border-t border-navy-lighter/40">
               <span class="text-gray-300">Capabilities:</span>
               <div class="flex items-center gap-2 text-gray-300 text-3xs font-medium">
+                <span v-if="selectedValidator.features.includes('onchain_delegated_listener')">&check; Zero-NAT On-Chain</span>
                 <span v-if="selectedValidator.features.includes('fast_finality')">&check; Finality</span>
                 <span v-if="selectedValidator.features.includes('delegated_harvesting_hotload')">&check; Hotload</span>
-                <span v-else class="text-gray-400">Standard</span>
+                <span v-else-if="!selectedValidator.features.includes('onchain_delegated_listener')" class="text-gray-400">Standard</span>
               </div>
             </div>
           </div>
@@ -479,7 +480,7 @@
               <input 
                 type="text" 
                 v-model="customNodeUrl" 
-                placeholder="http://node-ip:8080" 
+                placeholder="http://node-ip:8080 or 64-hex Node Public Key" 
                 class="flex-1 bg-navy-lighter/40 text-white border border-navy-lighter rounded p-2 text-xs font-mono placeholder-gray-400 focus:border-blue-primary focus:outline-none"
               />
               <button 
@@ -530,12 +531,13 @@
           :disabled="!canActivateOnNode || isSubmitting" 
           class="mt-3 w-full blue-btn py-4 disabled:opacity-50 disabled:cursor-auto text-white text-xs font-semibold cursor-pointer uppercase tracking-wider"
         >
-          <span v-if="isSubmitting">Connecting to Node...</span>
+          <span v-if="isSubmitting">{{ isOnChainMode ? 'Preparing On-Chain Tx...' : 'Connecting to Node...' }}</span>
           <span v-else-if="!hasMinimumBalance">Cannot Activate: Balance &lt; 100k {{ nativeTokenName }}</span>
           <span v-else-if="!isLinked">Cannot Activate: Not Linked</span>
           <span v-else-if="!isHarvesterRegistered">Cannot Activate: Not Registered</span>
           <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
           <span v-else-if="selectedValidator && !selectedValidator.eligible">Cannot Activate: {{ selectedValidator.statusReason }}</span>
+          <span v-else-if="isOnChainMode">Announce Delegation On-Chain &rarr;</span>
           <span v-else>Activate on Validator Node &rarr;</span>
         </button>
 
@@ -548,7 +550,9 @@
         <!-- Node Connected Status -->
         <div class="mt-4 pt-3 border-t border-navy-lighter flex items-center justify-between text-xs text-gray-300">
           <span class="text-gray-400">Target Node:</span>
-          <span class="font-mono text-gray-200 truncate ml-2 text-right">{{ targetNodeUrl }}</span>
+          <span class="font-mono text-gray-200 truncate ml-2 text-right">
+            {{ isOnChainMode ? (targetNodePublicKey ? 'On-Chain (' + targetNodePublicKey.slice(0, 10) + '...)' : 'On-Chain Network Broadcast') : targetNodeUrl }}
+          </span>
         </div>
 
         <!-- Cancel Link (identical to ViewHarvesterTxn.vue) -->
@@ -623,6 +627,7 @@ import {
   PublicAccount,
   Crypto,
   Password,
+  EncryptedMessage,
 } from "tsjs-xpx-chain-sdk";
 import { copyToClipboard } from "@/util/functions";
 import {
@@ -675,7 +680,7 @@ const hasStoredEncryptedKey = ref<boolean>(false);
 const togglePasswordModal = ref<boolean>(false);
 const walletPasswdInput = ref<string>("");
 const passwordErr = ref<string>("");
-const passwordModalAction = ref<"unlock" | "link" | "saveRestored" | "unlockAndSubmit">("unlock");
+const passwordModalAction = ref<"unlock" | "link" | "saveRestored" | "unlockAndSubmit" | "unlockAndBroadcastOnChain">("unlock");
 const passwordModalTitle = ref<string>("");
 const passwordModalDesc = ref<string>("");
 const passwordModalActionText = ref<string>("");
@@ -731,7 +736,7 @@ const decryptStoredRecord = (record: EncryptedRemoteKeyData, passwordStr: string
   }
 };
 
-const openPasswordModal = (action: "unlock" | "link" | "saveRestored" | "unlockAndSubmit") => {
+const openPasswordModal = (action: "unlock" | "link" | "saveRestored" | "unlockAndSubmit" | "unlockAndBroadcastOnChain") => {
   passwordModalAction.value = action;
   walletPasswdInput.value = "";
   passwordErr.value = "";
@@ -744,6 +749,10 @@ const openPasswordModal = (action: "unlock" | "link" | "saveRestored" | "unlockA
     passwordModalTitle.value = "Unlock Remote Key for Delegation";
     passwordModalDesc.value = "Enter your wallet password to decrypt your remote key and activate on the node.";
     passwordModalActionText.value = "Unlock & Delegate";
+  } else if (action === "unlockAndBroadcastOnChain") {
+    passwordModalTitle.value = "Broadcast On-Chain Delegation";
+    passwordModalDesc.value = "Enter your wallet password to encrypt your remote key for the validator node.";
+    passwordModalActionText.value = "Encrypt & Broadcast On-Chain";
   } else if (action === "link") {
     passwordModalTitle.value = "Encrypt & Save Remote Key";
     passwordModalDesc.value = "Enter your wallet password to encrypt your newly generated remote key before linking.";
@@ -838,6 +847,70 @@ const onConfirmPasswordModal = async () => {
         life: 3000,
       });
     }
+  } else if (passwordModalAction.value === "unlockAndBroadcastOnChain") {
+    const keyToUse = activeOrSavedPrivateKey.value || remotePrivateKeyInput.value.trim();
+    if (!keyToUse) {
+      passwordErr.value = "Remote key missing.";
+      return;
+    }
+    const currentAccount = walletState.currentLoggedInWallet?.accounts.find(
+      (a) => a.address === selectedAddress.value
+    );
+    if (!currentAccount) {
+      passwordErr.value = "Current wallet account not found.";
+      return;
+    }
+    let senderPrivKey: string;
+    try {
+      senderPrivKey = WalletUtils.decryptPrivateKey(
+        new Password(walletPasswdInput.value),
+        currentAccount.encrypted,
+        currentAccount.iv
+      );
+    } catch {
+      passwordErr.value = "Failed to decrypt sender account private key.";
+      return;
+    }
+
+    const targetNodeKey = targetNodePublicKey.value;
+    if (!targetNodeKey || targetNodeKey.length !== 64) {
+      passwordErr.value = "Target validator node public key is missing or invalid.";
+      return;
+    }
+
+    try {
+      const payloadObj = {
+        type: "sirius.delegated_staking",
+        version: 1,
+        action: "link",
+        remotePrivateKey: keyToUse,
+      };
+      const payloadJson = JSON.stringify(payloadObj);
+      const nodePubAcc = PublicAccount.createFromPublicKey(
+        targetNodeKey,
+        AppState.networkType
+      );
+      const encMsg = EncryptedMessage.create(
+        payloadJson,
+        nodePubAcc,
+        senderPrivKey
+      );
+
+      const transferTx = AppState.buildTxn
+        .transferBuilder()
+        .recipient(nodePubAcc.address)
+        .mosaics([])
+        .message(encMsg)
+        .build();
+
+      TransactionState.unsignedTransactionPayload = transferTx.serialize();
+      TransactionState.selectedAddress = selectedAddress.value;
+      closePasswordModal();
+      router.push({ name: "ViewConfirmTransaction" });
+    } catch (err: any) {
+      passwordErr.value = `Failed to create encrypted delegation transaction: ${err.message}`;
+    }
+    return;
   }
 };
 
@@ -1058,6 +1131,37 @@ const targetNodeUrl = computed(() => {
     return customNodeUrl.value.trim().replace(/\/+$/, "");
   }
   return selectedValidator.value?.endpoint || "http://localhost:8080";
+});
+
+const targetNodePublicKey = computed(() => {
+  if (selectedValidatorId.value === "custom") {
+    return customProbeResult.value?.nodePublicKey || (customNodeUrl.value.trim().length === 64 ? customNodeUrl.value.trim().toUpperCase() : "");
+  }
+  return selectedValidator.value?.nodePublicKey || "";
+});
+
+const isOnChainMode = computed(() => {
+  if (selectedValidator.value) {
+    if (
+      selectedValidator.value.endpoint === "onchain" ||
+      selectedValidator.value.features?.includes("onchain_delegated_listener")
+    ) {
+      return true;
+    }
+    if (
+      typeof location !== "undefined" &&
+      location.protocol === "https:" &&
+      selectedValidator.value.endpoint.startsWith("http://") &&
+      !selectedValidator.value.endpoint.includes("localhost") &&
+      !selectedValidator.value.endpoint.includes("127.0.0.1")
+    ) {
+      return true;
+    }
+  }
+  if (selectedValidatorId.value === "custom") {
+    return customProbeResult.value?.endpoint === "onchain" || customNodeUrl.value.trim().length === 64;
+  }
+  return false;
 });
 
 const showKey = ref<boolean>(false);
@@ -1368,6 +1472,17 @@ const submitKeyToNode = async () => {
   if (!isHarvesterRegistered.value) {
     nodeSuccess.value = false;
     nodeMessage.value = "Cannot activate: Account is not registered in the Harvester Committee on-chain. Please complete Step 3 (Register Harvester) first.";
+    return;
+  }
+
+  if (isOnChainMode.value) {
+    const targetKey = targetNodePublicKey.value;
+    if (!targetKey || targetKey.length !== 64) {
+      nodeSuccess.value = false;
+      nodeMessage.value = "Target validator node public key is missing or invalid. Please select an eligible validator.";
+      return;
+    }
+    openPasswordModal("unlockAndBroadcastOnChain");
     return;
   }
 

@@ -100,25 +100,26 @@ export class ValidatorDiscoveryService {
             }
           }
 
-          if (parsed && (parsed.endpoint || parsed.url)) {
-            const rawEndpoint = String(parsed.endpoint || parsed.url).trim().replace(/\/+$/, "");
-            try {
-              const urlObj = new URL(rawEndpoint);
-              if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
-                continue;
+          if (parsed && (parsed.endpoint || parsed.url || parsed.nodePublicKey)) {
+            let rawEndpoint = String(parsed.endpoint || parsed.url || "onchain").trim().replace(/\/+$/, "");
+            if (rawEndpoint !== "onchain" && rawEndpoint !== "") {
+              try {
+                const urlObj = new URL(rawEndpoint);
+                if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+                  rawEndpoint = "onchain";
+                }
+                const host = urlObj.hostname.toLowerCase();
+                if (
+                  host.startsWith("169.254.") ||
+                  host === "metadata.google.internal" ||
+                  host === "100.100.100.200" ||
+                  host === "[fd00:ec2::254]"
+                ) {
+                  rawEndpoint = "onchain";
+                }
+              } catch {
+                rawEndpoint = "onchain";
               }
-              // Filter out cloud metadata services and link-local ranges (AWS, GCP, Azure, Alibaba, OpenStack)
-              const host = urlObj.hostname.toLowerCase();
-              if (
-                host.startsWith("169.254.") ||
-                host === "metadata.google.internal" ||
-                host === "100.100.100.200" ||
-                host === "[fd00:ec2::254]"
-              ) {
-                continue;
-              }
-            } catch {
-              continue; // Reject malformed URLs
             }
 
             const targetPub = String((entry as any).targetKey?.publicKey || (entry as any).targetId?.toHex?.() || "");
@@ -172,6 +173,23 @@ export class ValidatorDiscoveryService {
   ): Promise<VerifiedValidator> {
     const start = performance.now();
     const cleanEndpoint = candidate.endpoint.trim().replace(/\/+$/, "");
+
+    if (cleanEndpoint === "onchain" || (cleanEndpoint.length === 64 && /^[0-9a-fA-F]+$/.test(cleanEndpoint))) {
+      const nodePubKey = (cleanEndpoint.length === 64 ? cleanEndpoint : (candidate.nodePublicKey || "")).toUpperCase();
+      const pingMs = Math.max(10, Math.round(performance.now() - start));
+      return {
+        ...candidate,
+        name: candidate.name === "Custom Node" && nodePubKey ? `On-Chain Validator (${nodePubKey.slice(0, 6)}...)` : candidate.name,
+        endpoint: "onchain",
+        online: true,
+        pingMs,
+        activeSlots: 0,
+        maxSlots: 1000,
+        features: ["onchain_delegated_listener", "delegated_harvesting_hotload"],
+        eligible: true,
+        nodePublicKey: nodePubKey,
+      };
+    }
 
     try {
       const resp = await fetchWithTimeout(`${cleanEndpoint}/api/status`, { method: "GET" }, timeoutMs);
