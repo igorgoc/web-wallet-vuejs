@@ -399,10 +399,13 @@
             </span>
           </div>
 
-          <div v-if="remotePrivateKeyInput.trim()" class="flex items-center justify-between pt-1 border-t border-navy-lighter/50">
-            <span class="text-gray-300">Key Matches:</span>
-            <span v-if="isLinked && isKeyMatchingLinked" class="text-gray-200 font-semibold">
-              &check; Matches
+          <div v-if="remotePrivateKeyInput.trim() || hasStoredEncryptedKey" class="flex items-center justify-between pt-1 border-t border-navy-lighter/50">
+            <span class="text-gray-300">Remote Key:</span>
+            <span v-if="hasStoredEncryptedKey && !unlockedPrivateKey && !remotePrivateKeyInput.trim()" class="text-amber-300 font-semibold flex items-center gap-1">
+              <span>🔒</span> Saved (Encrypted)
+            </span>
+            <span v-else-if="isLinked && isKeyMatchingLinked" class="text-gray-200 font-semibold">
+              &check; Matches On-Chain
             </span>
             <span v-else-if="!isLinked" class="text-gray-400">
               Awaiting Link
@@ -483,7 +486,10 @@
             <label class="block text-xs font-semibold text-gray-200">
               Remote Private Key (64-char Hex)
             </label>
-            <span v-if="isLinked && isKeyMatchingLinked" class="text-xxs text-gray-300 font-medium">
+            <span v-if="isLinked && hasStoredEncryptedKey && !unlockedPrivateKey && !remotePrivateKeyInput.trim()" class="text-xxs text-amber-300 font-medium flex items-center gap-1">
+              <span>🔒</span> Saved in Storage
+            </span>
+            <span v-else-if="isLinked && isKeyMatchingLinked" class="text-xxs text-gray-300 font-medium">
               &check; Matches
             </span>
           </div>
@@ -491,15 +497,25 @@
             <input 
               :type="showKey ? 'text' : 'password'" 
               v-model="remotePrivateKeyInput" 
-              placeholder="64-character remote key" 
-              class="w-full bg-navy-lighter/40 text-white border border-navy-lighter rounded p-2 text-xs font-mono pr-10 placeholder-gray-400 focus:border-blue-primary focus:outline-none"
+              :placeholder="hasStoredEncryptedKey ? 'Saved encrypted (Click Unlock or Announce below)' : '64-character remote key'" 
+              class="w-full bg-navy-lighter/40 text-white border border-navy-lighter rounded p-2 text-xs font-mono pr-16 placeholder-gray-400 focus:border-blue-primary focus:outline-none"
             />
-            <font-awesome-icon 
-              :icon="showKey ? 'eye-slash' : 'eye'" 
-              :title="showKey ? 'Hide Private Key' : 'Show Private Key'" 
-              class="absolute right-3 top-2.5 text-gray-400 hover:text-white cursor-pointer text-xs" 
-              @click="showKey = !showKey"
-            />
+            <div class="absolute right-3 top-2.5 flex items-center gap-2">
+              <button
+                v-if="hasStoredEncryptedKey && !unlockedPrivateKey && !remotePrivateKeyInput.trim()"
+                type="button"
+                @click="openPasswordModal('unlock')"
+                class="text-xxs text-blue-link hover:underline font-semibold cursor-pointer bg-transparent border-0 p-0"
+              >
+                Unlock
+              </button>
+              <font-awesome-icon 
+                :icon="showKey ? 'eye-slash' : 'eye'" 
+                :title="showKey ? 'Hide Private Key' : 'Show Private Key'" 
+                class="text-gray-400 hover:text-white cursor-pointer text-xs" 
+                @click="showKey = !showKey"
+              />
+            </div>
           </div>
         </div>
 
@@ -516,6 +532,9 @@
           <span v-else-if="!isHarvesterRegistered">Cannot Activate: Not Registered</span>
           <span v-else-if="!isKeyMatchingLinked">Cannot Activate: Key Mismatch</span>
           <span v-else-if="selectedValidator && !selectedValidator.eligible">Cannot Activate: {{ selectedValidator.statusReason }}</span>
+          <span v-else-if="hasStoredEncryptedKey && !unlockedPrivateKey && !remotePrivateKeyInput.trim()">
+            Unlock & {{ isOnChainMode ? 'Announce On-Chain' : 'Activate' }} &rarr;
+          </span>
           <span v-else-if="isOnChainMode">Announce Delegation On-Chain &rarr;</span>
           <span v-else>Activate on Validator Node &rarr;</span>
         </button>
@@ -1149,6 +1168,7 @@ const nodeMessage = ref<string>("");
 const nodeSuccess = ref<boolean>(false);
 
 const isKeyValid = computed(() => {
+  if (hasStoredEncryptedKey.value && isLinked.value) return true;
   const k = remotePrivateKeyInput.value.trim();
   return /^[0-9a-fA-F]{64}$/.test(k);
 });
@@ -1165,7 +1185,9 @@ const derivedRemotePubKey = computed(() => {
 });
 
 const isKeyMatchingLinked = computed(() => {
-  if (!isLinked.value || !derivedRemotePubKey.value) return false;
+  if (!isLinked.value) return false;
+  if (hasStoredEncryptedKey.value) return true;
+  if (!derivedRemotePubKey.value) return false;
   return derivedRemotePubKey.value.toUpperCase() === linkedRemotePubKey.value.toUpperCase();
 });
 
@@ -1192,12 +1214,15 @@ const canActivateOnNode = computed(() => {
       ? (customProbeResult.value ? customProbeResult.value.eligible : true)
       : (selectedValidator.value ? selectedValidator.value.eligible : true);
 
+  const hasKeyReadyOrStored =
+    (hasStoredEncryptedKey.value && isLinked.value) ||
+    (isKeyValid.value && isKeyMatchingLinked.value);
+
   return (
     isTargetEligible &&
-    isKeyValid.value &&
+    hasKeyReadyOrStored &&
     hasMinimumBalance.value &&
     isLinked.value &&
-    isKeyMatchingLinked.value &&
     isHarvesterRegistered.value
   );
 });
