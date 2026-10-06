@@ -449,30 +449,9 @@
           </select>
 
           <!-- Selected Node Info Card -->
-          <div v-if="selectedValidator && selectedValidatorId !== 'custom'" class="mt-1.5 p-2.5 bg-navy-lighter/30 rounded border border-navy-lighter/60 text-xxs space-y-1.5">
-            <div class="flex items-center justify-between">
-              <span class="text-gray-300">Endpoint:</span>
-              <span class="font-mono text-gray-200 font-semibold">{{ selectedValidator.endpoint === 'onchain' ? 'On-Chain (Zero Ports / NAT Safe)' : selectedValidator.endpoint }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-300">Roundtrip Latency:</span>
-              <span class="text-gray-200 font-semibold">{{ selectedValidator.pingMs }} ms</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-300">Harvesting Pool Slots:</span>
-              <span class="text-gray-200 font-semibold">
-                {{ selectedValidator.activeSlots }} / {{ selectedValidator.maxSlots }} harvesters
-              </span>
-            </div>
-            <div class="flex items-center justify-between pt-1 border-t border-navy-lighter/40">
-              <span class="text-gray-300">Capabilities:</span>
-              <div class="flex items-center gap-2 text-gray-300 text-3xs font-medium">
-                <span v-if="selectedValidator.features.includes('onchain_delegated_listener')">&check; Zero-NAT On-Chain</span>
-                <span v-if="selectedValidator.features.includes('fast_finality')">&check; Finality</span>
-                <span v-if="selectedValidator.features.includes('delegated_harvesting_hotload')">&check; Hotload</span>
-                <span v-else-if="!selectedValidator.features.includes('onchain_delegated_listener')" class="text-gray-400">Standard</span>
-              </div>
-            </div>
+          <div v-if="selectedValidator && selectedValidatorId !== 'custom'" class="mt-1.5 p-2.5 bg-navy-lighter/30 rounded border border-navy-lighter/60 text-xxs flex items-center justify-between">
+            <span class="text-gray-300">Roundtrip Latency:</span>
+            <span class="text-gray-200 font-semibold">{{ selectedValidator.pingMs }} ms</span>
           </div>
 
           <div v-if="selectedValidatorId === 'custom'" class="mt-1 space-y-1">
