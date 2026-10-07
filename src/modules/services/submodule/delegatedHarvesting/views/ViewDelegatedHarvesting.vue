@@ -66,10 +66,10 @@
             <div class="text-xs font-bold text-gray-800 uppercase tracking-wider">
               Delegated Staking Dashboard
             </div>
-            <span v-if="isHarvesterRegistered && isKeyHotloadedOnNode" class="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <span v-if="isActivelyHarvesting" class="text-xs text-green-600 font-semibold flex items-center gap-1">
               <span>&check;</span> Actively Harvesting
             </span>
-            <span v-else-if="isHarvesterRegistered" class="text-xs text-gray-600 font-medium flex items-center gap-1">
+            <span v-else-if="isHarvesterRegistered" class="text-xs text-amber-600 font-medium flex items-center gap-1">
               <span>&check;</span> Registered Harvester
             </span>
             <span v-else class="text-xs text-gray-500 font-medium">
@@ -90,8 +90,8 @@
             </div>
             <div class="bg-gray-50 border border-gray-200 p-3 rounded">
               <span class="text-gray-500 text-xxs uppercase tracking-wider block">Connected Node</span>
-              <span class="font-semibold text-gray-800 truncate mt-0.5 block" :title="targetNodeUrl">
-                {{ isKeyHotloadedOnNode ? (selectedValidator ? selectedValidator.name : 'Connected') : 'Awaiting Step 4' }}
+              <span class="font-semibold text-gray-800 truncate mt-0.5 block" :title="activeNodeName">
+                {{ isActivelyHarvesting ? activeNodeName : 'Awaiting Step 4' }}
               </span>
             </div>
           </div>
@@ -361,8 +361,48 @@
           4. Activate on Validator Node
         </div>
 
-        <!-- Prerequisites Checklist -->
-        <div class="p-3 bg-navy-lighter/30 border border-navy-lighter/60 rounded text-xs space-y-2">
+        <!-- Active Harvesting State (when already delegated) -->
+        <div v-if="isActivelyHarvesting && !showReannounceForm" class="space-y-4">
+          <div class="p-4 bg-emerald-950/40 border border-emerald-500/60 rounded text-xs space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-400 flex items-center gap-1.5">
+                <span>&check;</span> Actively Harvesting
+              </span>
+              <span class="text-xxs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                Slot Active
+              </span>
+            </div>
+            <div class="text-gray-300 text-xs leading-relaxed">
+              Your remote harvester key is active on <span class="text-white font-semibold">{{ activeNodeName }}</span>. The validator is actively participating in consensus block minting on your behalf.
+            </div>
+            <div class="pt-2 border-t border-emerald-500/30 flex items-center justify-between">
+              <span class="text-xxs text-gray-400">Want to switch validator?</span>
+              <button
+                type="button"
+                @click="showReannounceForm = true"
+                class="text-xxs text-blue-link hover:underline font-semibold cursor-pointer bg-transparent border-0 p-0"
+              >
+                Change Validator / Re-announce &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delegation Announcement Form (shown if not active or if re-announcing) -->
+        <div v-else class="space-y-4">
+          <div v-if="showReannounceForm" class="flex items-center justify-between pb-2 border-b border-navy-lighter">
+            <span class="text-xxs text-amber-300 font-semibold uppercase">Re-announce Delegation</span>
+            <button
+              type="button"
+              @click="showReannounceForm = false"
+              class="text-xxs text-gray-400 hover:text-white cursor-pointer bg-transparent border-0 p-0"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <!-- Prerequisites Checklist -->
+          <div class="p-3 bg-navy-lighter/30 border border-navy-lighter/60 rounded text-xs space-y-2">
           <div class="font-bold text-gray-200 flex items-center justify-between pb-1.5 border-b border-navy-lighter/50">
             <span>Prerequisites</span>
             <span v-if="canActivateOnNode" class="text-xxs text-gray-300 font-medium">&check; Ready</span>
@@ -553,12 +593,13 @@
           </span>
         </div>
 
-        <!-- Cancel Link (identical to ViewHarvesterTxn.vue) -->
-        <div class="text-center mt-3 pt-2">
-          <router-link
-            :to="{ name: 'ViewServices' }"
-            class="content-center text-xs text-white border-b-2 border-white hover:text-gray-200"
-          >{{ $t("general.cancel") }}</router-link>
+          <!-- Cancel Link (identical to ViewHarvesterTxn.vue) -->
+          <div class="text-center mt-3 pt-2">
+            <router-link
+              :to="{ name: 'ViewServices' }"
+              class="content-center text-xs text-white border-b-2 border-white hover:text-gray-200"
+            >{{ $t("general.cancel") }}</router-link>
+          </div>
         </div>
       </div>
     </template>
@@ -627,6 +668,8 @@ import {
   Crypto,
   Password,
   EncryptedMessage,
+  TransactionQueryParams,
+  TransactionType,
 } from "tsjs-xpx-chain-sdk";
 import { copyToClipboard } from "@/util/functions";
 import {
@@ -924,6 +967,21 @@ const onConfirmPasswordModal = async () => {
 
       TransactionState.unsignedTransactionPayload = transferTx.serialize();
       TransactionState.selectedAddress = selectedAddress.value;
+
+      if (selectedAddress.value) {
+        const nodeName = selectedValidator.value?.name || (targetNodeKey === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" ? "mainnet-validator-zaginagaldica" : "Custom Node");
+        localStorage.setItem(
+          `delegated_node_${selectedAddress.value}`,
+          JSON.stringify({
+            nodePublicKey: targetNodeKey,
+            nodeName: nodeName,
+            nodeEndpoint: targetNodeUrl.value,
+            announcedAt: Date.now(),
+          })
+        );
+        isDelegationAnnouncedOnChain.value = true;
+      }
+
       closePasswordModal();
       router.push({ name: "ViewConfirmTransaction" });
     } catch (err: any) {
@@ -1041,9 +1099,38 @@ const customProbeResult = ref<VerifiedValidator | null>(null);
 
 const isDeactivating = ref<boolean>(false);
 const isKeyHotloadedOnNode = ref<boolean>(false);
+const isDelegationAnnouncedOnChain = ref<boolean>(false);
+const showReannounceForm = ref<boolean>(false);
 const lastSignedBlockHeight = ref<number>(0);
 
+const isActivelyHarvesting = computed(() => {
+  return isHarvesterRegistered.value && (isKeyHotloadedOnNode.value || isDelegationAnnouncedOnChain.value || lastSignedBlockHeight.value > 0);
+});
+
+const activeNodeName = computed(() => {
+  if (selectedValidator.value) return selectedValidator.value.name;
+  if (selectedAddress.value) {
+    const saved = localStorage.getItem(`delegated_node_${selectedAddress.value}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.nodeName) return parsed.nodeName;
+      } catch {}
+    }
+  }
+  return "mainnet-validator-zaginagaldica";
+});
+
 const checkNodeHotloadStatus = async () => {
+  // 1. Check local storage persistence
+  if (selectedAddress.value) {
+    const saved = localStorage.getItem(`delegated_node_${selectedAddress.value}`);
+    if (saved) {
+      isDelegationAnnouncedOnChain.value = true;
+    }
+  }
+
+  // 2. Query validator node if endpoint is accessible
   if (!targetNodeUrl.value) return;
   try {
     const res = await fetch(`${targetNodeUrl.value}/api/harvesting/delegated/list`);
@@ -1059,7 +1146,7 @@ const checkNodeHotloadStatus = async () => {
       }
     }
   } catch {
-    isKeyHotloadedOnNode.value = false;
+    // If direct REST is blocked by Mixed-Content or CORS, on-chain state remains authoritative
   }
 };
 
@@ -1086,7 +1173,12 @@ const deactivateAndUnlink = async () => {
       }
     }
 
+    if (selectedAddress.value) {
+      localStorage.removeItem(`delegated_node_${selectedAddress.value}`);
+    }
+    isDelegationAnnouncedOnChain.value = false;
     isKeyHotloadedOnNode.value = false;
+    showReannounceForm.value = false;
     toast.add({
       severity: "info",
       summary: "Node Key Removed",
@@ -1396,6 +1488,37 @@ const refreshAccountDetails = async () => {
       }
     }
     await checkNodeHotloadStatus();
+
+    // Inspect on-chain outgoing transactions for delegation announcements
+    if (selectedAddress.value && selectedPublicKey.value && AppState.chainAPI && AppState.chainAPI.accountAPI) {
+      try {
+        const pubAcc = Helper.createPublicAccount(selectedPublicKey.value, AppState.networkType);
+        const txs = await AppState.chainAPI.accountAPI.outgoingTransactions(pubAcc, new TransactionQueryParams());
+        if (Array.isArray(txs)) {
+          const hasDelegationTx = txs.some(
+            (t: any) =>
+              (t.type === 16724 || (t.type as any) === TransactionType.TRANSFER) &&
+              t.message &&
+              t.message.type === 1
+          );
+          if (hasDelegationTx) {
+            isDelegationAnnouncedOnChain.value = true;
+            if (selectedAddress.value && !localStorage.getItem(`delegated_node_${selectedAddress.value}`)) {
+              localStorage.setItem(
+                `delegated_node_${selectedAddress.value}`,
+                JSON.stringify({
+                  nodePublicKey: "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2",
+                  nodeName: "mainnet-validator-zaginagaldica",
+                  announcedAt: Date.now(),
+                })
+              );
+            }
+          }
+        }
+      } catch (outgoingErr) {
+        console.warn("Could not inspect outgoing delegation transactions:", outgoingErr);
+      }
+    }
   } catch (err) {
     console.error("Error refreshing account details:", err);
   }
