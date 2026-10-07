@@ -623,6 +623,7 @@ import {
   Address,
   LinkAction,
   PublicAccount,
+  AccountType,
   Crypto,
   Password,
   EncryptedMessage,
@@ -894,9 +895,29 @@ const onConfirmPasswordModal = async () => {
         senderPrivKey
       );
 
+      let recipientPubAcc = nodePubAcc;
+      try {
+        if (AppState.chainAPI && AppState.chainAPI.accountAPI) {
+          const targetAccInfo = await AppState.chainAPI.accountAPI.getAccountInfo(nodePubAcc.address);
+          if (
+            ((targetAccInfo.accountType as any) === AccountType.Remote || (targetAccInfo.accountType as any) === 2) &&
+            targetAccInfo.linkedAccountKey &&
+            targetAccInfo.linkedAccountKey !== "0".repeat(64)
+          ) {
+            // Target is a remote harvester key; redirect transfer recipient to linked main account
+            recipientPubAcc = PublicAccount.createFromPublicKey(
+              targetAccInfo.linkedAccountKey,
+              AppState.networkType
+            );
+          }
+        }
+      } catch (lookupErr) {
+        console.warn("[DelegatedHarvesting] Target account info lookup fallback:", lookupErr);
+      }
+
       const transferTx = AppState.buildTxn
         .transferBuilder()
-        .recipient(nodePubAcc.address)
+        .recipient(recipientPubAcc.address)
         .mosaics([])
         .message(encMsg)
         .build();
