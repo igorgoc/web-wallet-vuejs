@@ -238,3 +238,51 @@ test('On-Chain Protocol: scoped metadata key utf8 "sirius.v" matches 16-hex uint
   assert.strictEqual(hexKey, '7369726975732e76');
   assert.strictEqual(hexKey.length, 16); // Exactly 8 bytes (64 bits)
 });
+
+// -------------------------------------------------------------
+// Unit Tests: Active Harvesting & On-Chain Announcement Detection
+// -------------------------------------------------------------
+function computeActiveHarvesting(isHarvesterRegistered, isKeyHotloadedOnNode, isDelegationAnnouncedOnChain, lastSignedBlockHeight) {
+  return Boolean(isHarvesterRegistered && (isKeyHotloadedOnNode || isDelegationAnnouncedOnChain || lastSignedBlockHeight > 0));
+}
+
+test('Active Harvesting State: correctly evaluates active state across different signals', () => {
+  // 1. Registered + announced on-chain => true
+  assert.strictEqual(computeActiveHarvesting(true, false, true, 0), true);
+
+  // 2. Registered + key hotloaded via REST => true
+  assert.strictEqual(computeActiveHarvesting(true, true, false, 0), true);
+
+  // 3. Registered + signed block height > 0 => true
+  assert.strictEqual(computeActiveHarvesting(true, false, false, 14050000), true);
+
+  // 4. Not registered on-chain => always false even if hotloaded
+  assert.strictEqual(computeActiveHarvesting(false, true, true, 14050000), false);
+
+  // 5. Registered but no announcement or slot active => false
+  assert.strictEqual(computeActiveHarvesting(true, false, false, 0), false);
+});
+
+test('Outgoing Delegation Inspection: correctly filters encrypted delegation transfers', () => {
+  const transactions = [
+    { type: 16724, message: { type: 1, payload: '4EEEF4...' } }, // Valid encrypted delegation
+    { type: 16724, message: { type: 0, payload: 'Plain message' } }, // Plain transfer
+    { type: 16716, message: { type: 1, payload: '4EEEF4...' } }, // AccountLink (not transfer)
+    { type: 16724, message: null }, // Transfer without message
+  ];
+
+  const hasDelegation = transactions.some(
+    (t) => t.type === 16724 && t.message && t.message.type === 1
+  );
+
+  assert.strictEqual(hasDelegation, true);
+
+  const nonDelegationList = [
+    { type: 16724, message: { type: 0, payload: 'plain' } },
+  ];
+  const hasNoDelegation = nonDelegationList.some(
+    (t) => t.type === 16724 && t.message && t.message.type === 1
+  );
+  assert.strictEqual(hasNoDelegation, false);
+});
+
