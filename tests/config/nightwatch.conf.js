@@ -24,7 +24,7 @@ module.exports = {
   test_settings: {
     default: {
       disable_error_log: false,
-      launch_url: 'https://proximax-foundry.github.io/web-wallet-vuejs/#/',
+      launch_url: 'https://igorgoc.github.io/web-wallet-vuejs/#/',
 
       screenshots: {
         enabled: true,
