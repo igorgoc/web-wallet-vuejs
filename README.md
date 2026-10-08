@@ -32,26 +32,28 @@ This forked edition extends the official ProximaX Web Wallet with native support
 
 ---
 
-## User Guide: Delegated Staking (Become a Remote Validator)
+## Delegated Staking
 
 ### Prerequisites:
-- A ProximaX Sirius wallet account holding **at least 100,000 XPX**.
-- A small amount of XPX (~0.05 XPX) to cover on-chain network transaction fees.
+- A ProximaX Sirius account holding **at least 100,000 XPX** (minimum stake required for POS+ consensus eligibility).
+- A reserve of **~50 XPX** to cover on-chain network transaction fees (account key linking, committee registration, and encrypted activation message).
 
 ### Step-by-Step Activation:
-1. **Open the Harvesting Tab**:
-   Log in to your wallet and navigate to **Services** → **Harvesting** (or the Delegated Staking dashboard).
-2. **Select a Validator Node**:
-   Choose an active node from the community validator list (or enter the public key of a node running [proximax-sirius-core](https://github.com/igorgoc/proximax-sirius-core)).
-3. **Link Remote Key**:
-   Click **Activate Delegated Harvesting**. The wallet will:
-   - Generate a dedicated remote harvesting key pair.
-   - Announce an on-chain `AccountKeyLinkTransaction` linking your main account to the remote key.
-   - Send an encrypted activation message to the target validator node.
-4. **Start Harvesting**:
-   Once confirmed on-chain (~15 seconds), the validator node's dynamic hot-reloader ingests your key without downtime. Your account begins participating in POS+ block harvesting and earning network transaction fees!
-5. **Stop Anytime**:
-   Click **Deactivate Harvesting** at any time to unlink your remote key on-chain. Staked funds remain in your custody throughout the entire process.
+1. **Open Delegated Staking**:
+   Log in to your wallet and navigate to **Services** → **Delegated Staking**.
+2. **Step 1: Account & Stake**:
+   Select your wallet account holding ≥ 100,000 XPX.  
+   *(Note: Recent deposits mature over ~24 hours / 5,760 blocks before harvester committee registration unlocks).*
+3. **Step 2: Link Remote Key**:
+   The wallet automatically generates a dedicated remote harvesting key pair. Reveal, copy, or download a backup file (`.txt`) of this key, then click **Link Key** to broadcast the on-chain `AccountKeyLinkTransaction`.
+4. **Step 3: Register Harvester**:
+   Click **Register Harvester** to broadcast the on-chain `AddHarvesterTransaction` and register your account into the network's POS+ Harvester Committee.
+5. **Step 4: Activate on Validator Node**:
+   Select an active community node from the validator list (or enter the public key of a node running [ProximaX Sirius Core](https://github.com/igorgoc/proximax-sirius-core)). Unlock your remote key with your wallet password to send the encrypted activation message to the validator.
+6. **Start Harvesting & Earn Rewards**:
+   Within seconds, the validator node's dynamic hot-reloader (`v1.9.11+`) ingests your remote key without node downtime. Your dashboard will switch to **Actively Harvesting** with real-time tracking of signed blocks and earned fees.
+7. **Stop or Change Validator Anytime**:
+   Click **Deactivate & Stop Delegating** (or **Unlink** in Step 2) at any time to remove your key from the node and unlink on-chain. Staked funds never leave your custody throughout the entire process.
 
 ---
 
