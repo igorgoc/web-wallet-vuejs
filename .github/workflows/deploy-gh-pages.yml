@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - master
   workflow_dispatch:
 
 # Enforce least-privilege permissions for GitHub Pages deployment
