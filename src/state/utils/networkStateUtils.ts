@@ -125,14 +125,15 @@ export class NetworkStateUtils{
     AppState.chainAPI = new ChainAPICall(AppState.nodeFullURL);
   }
 
-  static updateChainNode(apiNode: string): void{
+  static updateChainNode(apiNode: any): void{
+    const targetNode = typeof apiNode === 'object' && apiNode !== null && 'value' in apiNode ? apiNode.value : String(apiNode);
     const chainProfilePreferences = new ChainProfilePreferences(networkState.chainNetworkName);
-    chainProfilePreferences.apiNode = apiNode;
+    chainProfilePreferences.apiNode = targetNode;
     chainProfilePreferences.saveToLocalStorage();
-    networkState.selectedAPIEndpoint = apiNode;
-    AppState.nodeFullURL = NetworkStateUtils.buildAPIEndpointURL(apiNode);
-    AppState.nodeURL = apiNode;
-    AppState.wsNodeFullURL = NetworkStateUtils.buildWSEndpointURL(apiNode);
+    networkState.selectedAPIEndpoint = targetNode;
+    AppState.nodeFullURL = NetworkStateUtils.buildAPIEndpointURL(targetNode);
+    AppState.nodeURL = targetNode;
+    AppState.wsNodeFullURL = NetworkStateUtils.buildWSEndpointURL(targetNode);
     AppState.chainAPI = new ChainAPICall(AppState.nodeFullURL);
     SessionService.setRaw(sessionSelectedAPINode, networkState.selectedAPIEndpoint);
   }

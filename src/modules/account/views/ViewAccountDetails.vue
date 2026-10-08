@@ -131,8 +131,6 @@ import { Helper } from "@/util/typeHelper";
 import { networkState } from "@/state/networkState";
 import { WalletUtils } from "@/util/walletUtils";
 import { useI18n } from 'vue-i18n';
-import { pdfWalletPaperImg } from '@/modules/account/pdfPaperWalletBackground';
-import jsPDF from 'jspdf';
 import qrcode from 'qrcode-generator';
 import PkPasswordModal from '@/modules/account/components/PkPasswordModal.vue'
 import PdfPasswordModal from '@/modules/account/components/PdfPasswordModal.vue'
@@ -258,7 +256,11 @@ const generateQR = (url, size = 2, margin = 0) => {
   return qr.createDataURL(size, margin);
 }
 
-const saveWalletPaper = (password) => {
+const saveWalletPaper = async (password) => {
+  const [{ default: jsPDF }, { pdfWalletPaperImg }] = await Promise.all([
+    import('jspdf'),
+    import('@/modules/account/pdfPaperWalletBackground')
+  ]);
   const doc = new jsPDF({
     unit: 'px'
   });

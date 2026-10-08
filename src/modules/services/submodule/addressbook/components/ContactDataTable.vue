@@ -51,7 +51,7 @@
         <Column field="name" headerStyle="width:95%" headerClass="hidden">
           <template #body="{ data }">
             <div class="flex items-center">
-              <div v-html="data.svgString" class="mr-2 inline-block"></div>
+              <div v-safe-html="data.svgString" class="mr-2 inline-block"></div>
               <div class="inline-block">
                 <div class="text-blue-primary text-tsm">
                   {{ data.name }}

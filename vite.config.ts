@@ -50,30 +50,49 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
-      chunkSizeWarningLimit: 2000, //default 500
-      /* rollupOptions: {
+      chunkSizeWarningLimit: 2500,
+      rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
-              const arr = id.toString().split("node_modules/")[1].split("/");
-              switch (arr[0]) {
-                case "@kangc":
-                case "@naturefw":
-                case "@popperjs":
-                case "@vue":
-                case "axios":
-                case "element-plus":
-                  return "_" + arr[0];
-                default:
-                  return arr[0].toString();
+              if (
+                id.includes("tsjs-xpx-chain-sdk") ||
+                id.includes("crypto-js") ||
+                id.includes("jose") ||
+                id.includes("ethers") ||
+                id.includes("@noble") ||
+                id.includes("@js-joda") ||
+                id.includes("decimal.js") ||
+                id.includes("bn.js") ||
+                id.includes("rxjs") ||
+                id.includes("tslib")
+              ) {
+                return "vendor-chain-core";
+              }
+              if (
+                id.includes("mathjs") ||
+                id.includes("typed-function") ||
+                id.includes("complex.js") ||
+                id.includes("fraction.js")
+              ) {
+                return "vendor-math";
+              }
+              if (id.includes("primevue") || id.includes("@fortawesome")) {
+                return "vendor-ui";
+              }
+              if (
+                id.includes("vue-router") ||
+                id.includes("vue-i18n") ||
+                id.includes("@intlify") ||
+                id.includes("/vue/") ||
+                id.includes("/@vue/")
+              ) {
+                return "vendor-vue";
               }
             }
           },
-          chunkFileNames: "static/js1/[name]-[hash].js",
-          entryFileNames: "static/js2/[name]-[hash].js",
-          assetFileNames: "static/[ext]/[name]-[hash].[ext]",
         },
-      }, */
+      },
     },
   };
 });

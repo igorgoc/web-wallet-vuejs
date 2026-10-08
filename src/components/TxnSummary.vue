@@ -186,6 +186,7 @@ import DisplaySelectedAccount from "./DisplaySelectedAccount.vue";
 import TransactionFeeLayout from "./TransactionFeeLayout.vue";
 import { computed } from "vue";
 import { networkState } from "@/state/networkState";
+import { Helper } from "@/util/typeHelper";
 
 defineProps({
   selectedMultisigAddress: {
@@ -269,7 +270,7 @@ const displayAssetName = (name: string) => {
 const splitCurrency = (amount: string | number) => {
   let split = amount.toString().split(".");
   if (split[1] != undefined) {
-    return (
+    return Helper.sanitizeHtml(
       '<span class="font-semibold text-sm">' +
       split[0] +
       '</span>.<span class="font-semibold text-xs">' +
@@ -277,7 +278,7 @@ const splitCurrency = (amount: string | number) => {
       "</span>"
     );
   } else {
-    return '<span class="font-semibold text-sm">' + split[0] + "</span>";
+    return Helper.sanitizeHtml('<span class="font-semibold text-sm">' + split[0] + "</span>");
   }
 };
 

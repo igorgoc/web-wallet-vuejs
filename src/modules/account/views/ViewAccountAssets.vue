@@ -219,23 +219,26 @@ const lazyLoad = async () => {
     const names = await AppState.chainAPI.assetAPI.getMosaicsNames(assetIds)
     const assetProperties = await AppState.chainAPI.assetAPI.getMosaics(assetIds)
 
-    const assetIdToIndexMap: { [key: string]: number } = {};
-    assetIds.forEach((asset, index) => {
-        assetIdToIndexMap[asset.toHex()] = index;
+    const namesMap = new Map<string, string>();
+    names.forEach((n) => {
+        namesMap.set(n.mosaicId.toHex(), n.names[0]?.name ?? '-');
     });
 
-    assetProperties.sort((a, b) => {
-        const indexA = assetIdToIndexMap[a.mosaicId.toHex()];
-        const indexB = assetIdToIndexMap[b.mosaicId.toHex()];
-        return indexA - indexB;
+    const propsMap = new Map<string, any>();
+    assetProperties.forEach((p) => {
+        propsMap.set(p.mosaicId.toHex(), p);
     });
 
     for (let i = 0; i < assetIds.length; i++) {
-
-        const findAsset = assets.value.find(asset => asset.id == assetIds[i].toHex())
-        findAsset.name = names[i].names[0]?.name ?? '-'
-        findAsset.amount = Helper.toCurrencyFormat(parseFloat(findAsset.amount) / Math.pow(10, assetProperties[i].divisibility), assetProperties[i].divisibility)
-        findAsset.isCreator = assetProperties[i].owner.address.plain() == Address.createFromRawAddress(p.address).plain()
+        const hexId = assetIds[i].toHex();
+        const findAsset = assets.value.find(asset => asset.id == hexId);
+        if (!findAsset) continue;
+        findAsset.name = namesMap.get(hexId) ?? '-';
+        const prop = propsMap.get(hexId);
+        if (prop) {
+            findAsset.amount = Helper.toCurrencyFormat(parseFloat(findAsset.amount) / Math.pow(10, prop.divisibility), prop.divisibility);
+            findAsset.isCreator = prop.owner.address.plain() == Address.createFromRawAddress(p.address).plain();
+        }
         findAsset.isLoaded = true;
     }
 

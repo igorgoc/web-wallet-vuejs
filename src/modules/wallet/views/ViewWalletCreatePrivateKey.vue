@@ -97,7 +97,7 @@
       </div>
       <div class="border-2 shadow-lg filter mb-10 bg-white">
         <div class="flex items-center">
-          <div v-html="svgString"></div>
+          <div v-safe-html="svgString"></div>
           <div class="flex flex-col justify-center ml-4">
             <div class="flex">
               <div class="font-semibold text-md">{{ accName }}</div>
@@ -231,9 +231,7 @@ import { AppState } from "@/state/appState";
 import { Account } from "tsjs-xpx-chain-sdk";
 import { ThemeStyleConfig } from "@/models/stores/themeStyleConfig";
 import { toSvg } from "jdenticon";
-import jsPDF from "jspdf";
 import qrcode from "qrcode-generator";
-import { pdfWalletPaperImg } from "@/modules/account/pdfPaperWalletBackground";
 import { useField, useForm } from "vee-validate";
 import { toTypedSchema } from "@vee-validate/zod";
 import * as zod from "zod";
@@ -289,7 +287,7 @@ const publicKey = ref("");
 const accName = ref("");
 const themeConfig = new ThemeStyleConfig("ThemeStyleConfig");
 themeConfig.init();
-const svgString = ref(toSvg(address.value, 100, themeConfig.jdenticonConfig));
+const svgString = computed(() => toSvg(address.value, 100, themeConfig.jdenticonConfig));
 const copy = (id :string) => {
   let stringToCopy = document.getElementById(id).getAttribute("copyValue");
   let copySubject = document.getElementById(id).getAttribute("copySubject");
@@ -316,7 +314,8 @@ const onSubmit = handleSubmit(({ name, password,privKey }) => {
   } else {
     let pass = WalletUtils.createPassword(password);
 
-    if (privKey.substring(0, 2) == "0x") {
+    privKey = privKey.trim();
+    if (privKey.substring(0, 2).toLowerCase() == "0x") {
       privKey = privKey.substring(2);
     }
     const walletAccount = WalletUtils.addNewWalletWithPrivateKey(
@@ -346,7 +345,11 @@ const generateQR = (url, size = 2, margin = 0) => {
   qr.make();
   return qr.createDataURL(size, margin);
 };
-const saveWalletPaper = () => {
+const saveWalletPaper = async () => {
+  const [{ default: jsPDF }, { pdfWalletPaperImg }] = await Promise.all([
+    import("jspdf"),
+    import("@/modules/account/pdfPaperWalletBackground"),
+  ]);
   const doc = new jsPDF({
     unit: "px",
   });

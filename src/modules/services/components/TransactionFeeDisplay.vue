@@ -253,9 +253,9 @@ const isMultiSig = (address) => {
 const splitCurrency = (amount) => {
       let split = amount.toString().split(".")
       if (split[1]!=undefined){
-        return '<span class="font-semibold text-sm">' + split[0] + '</span>.<span class="font-semibold text-xs">' + split[1] + '</span>';
+        return Helper.sanitizeHtml('<span class="font-semibold text-sm">' + split[0] + '</span>.<span class="font-semibold text-xs">' + split[1] + '</span>');
       }else{
-        return '<span class="font-semibold text-sm">' + split[0] + '</span>';
+        return Helper.sanitizeHtml('<span class="font-semibold text-sm">' + split[0] + '</span>');
       }
     };
   const displayAssetName = asset =>{

@@ -3,7 +3,7 @@
         <div class="lg:w-9/12 ml-2 mr-2 lg:ml-auto lg:mr-auto mt-5 border-2 p-3">
             <div class="border border-blue-300 rounded-md p-3 mt-3 bg-blue-50">
                 <div class="flex items-center gap-2">
-                    <div v-html="svgString"></div>
+                    <div v-safe-html="svgString"></div>
                     <div class="flex flex-col gap-0.5">
                         <div class="uppercase text-xxs text-blue-primary">Selected Account</div>
                         <div class="font-semibold">{{ accountName }}</div>

@@ -6,7 +6,7 @@
           {{ $t("general.extendDuration") }}
         </div>
         <div class="flex items-center">
-          <div v-html="svgString" class="inline-block" />
+          <div v-safe-html="svgString" class="inline-block" />
           <div class="ml-2">
             <div class="text-blue-primary text-xxs font-bold uppercase mb-1">
               {{ $t("namespace.namespaceCreatedBy") }}

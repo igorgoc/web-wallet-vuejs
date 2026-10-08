@@ -244,13 +244,13 @@ export default defineComponent({
       let display = "Size:" + (data.sizeChanged > 0 ? `+${data.sizeChanged}`: data.sizeChanged);
 
       if(data.oldValue){
-        display += '<br>' + t('dashboard.oldValue') + ':' +' '+ data.oldValue ;
+        display += '<br>' + t('dashboard.oldValue') + ': ' + Helper.escapeHtml(data.oldValue);
       }
       if(data.newValue){
-        display += '<br>' + t('dashboard.newValue') + ':' +' '+ data.oldValue ;
+        display += '<br>' + t('dashboard.newValue') + ': ' + Helper.escapeHtml(data.newValue);
       }
 
-      display += '<br>' + t('dashboard.valueChange') + ':' +' '+ data.oldValue ;
+      display += '<br>' + t('dashboard.valueChange') + ': ' + Helper.escapeHtml(data.oldValue);
       return display;
     }
 

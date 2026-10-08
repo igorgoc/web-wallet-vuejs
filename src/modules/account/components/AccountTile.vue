@@ -4,7 +4,7 @@
     @click="navigate()"
   >
     <div class="flex gap-2">
-      <div class="mt-auto mb-auto" v-html="svgString"></div>
+      <div class="mt-auto mb-auto" v-safe-html="svgString"></div>
       <div class="flex flex-col">
         <div class="text-blue-primary font-bold text-xs mb-0.5">
           {{ accountName }}

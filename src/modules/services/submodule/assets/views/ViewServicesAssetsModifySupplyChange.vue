@@ -4,7 +4,7 @@
       <div class="lg:flex lg:justify-between lg:items-center">
           <div class='font-semibold mb-4 inline-block mt-1'>{{$t('asset.modifyAssetSupply')}}</div>
           <div class="flex items-center">
-            <div v-html="svgString" class="inline-block" />
+            <div v-safe-html="svgString" class="inline-block" />
             <div class="ml-2">
               <div class="text-blue-primary text-xxs font-bold uppercase mb-1">{{$t('asset.assetCreatedBy')}}</div>
               <div class="font-bold text-black text-sm">{{ selectedAccName }}</div>

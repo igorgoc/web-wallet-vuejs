@@ -412,16 +412,14 @@ const maxAmount = computed(() => {
 
 const totalFee = computed(() => {
   let tokenDivisibility = AppState.nativeToken.divisibility;
+  const parsedNative = parseFloat(nativeAmount.value ? nativeAmount.value.replace(/,/g, "") : "0") || 0;
   if (!selectedMultisigAddress.value) {
     if (tokenDivisibility == 0) {
-      return Math.trunc(
-        parseFloat(nativeAmount.value.replace(/,/g, "")) + txnFee.value
-      );
+      return Math.trunc(parsedNative + txnFee.value);
     } else {
       return (
         Math.round(
-          (parseFloat(nativeAmount.value.replace(/,/g, "")) + txnFee.value) *
-            Math.pow(10, tokenDivisibility)
+          (parsedNative + txnFee.value) * Math.pow(10, tokenDivisibility)
         ) / Math.pow(10, tokenDivisibility)
       );
     }
@@ -516,9 +514,10 @@ const makeTransferPayload = async () => {
   if (!verifyResult) {
     return;
   } else {
-    let xpxAmount =
-      parseFloat(nativeAmount.value) *
-      Math.pow(10, AppState.nativeToken.divisibility);
+    let xpxAmount = Math.round(
+      (parseFloat(nativeAmount.value) || 0) *
+      Math.pow(10, AppState.nativeToken.divisibility)
+    );
 
     let mosaics = [];
     let mosaicsSent = selectedAssets.value.map((asset) => {
@@ -543,9 +542,11 @@ const makeTransferPayload = async () => {
             new Mosaic(
               new MosaicId(mosaicSentInfo.id),
               UInt64.fromUint(
-                Number(
-                  mosaicSentInfo.amount *
-                    Math.pow(10, mosaicSentInfo.divisibility)
+                Math.round(
+                  Number(
+                    mosaicSentInfo.amount *
+                      Math.pow(10, mosaicSentInfo.divisibility)
+                  )
                 )
               )
             )

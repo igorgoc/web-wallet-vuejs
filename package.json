@@ -11,7 +11,9 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "test": "npx nightwatch --config tests/config/nightwatch.conf.js --headless --no-sandbox tests"
+    "test": "npx nightwatch --config tests/config/nightwatch.conf.js --headless --no-sandbox tests",
+    "test:unit": "node --test tests/unit/delegated_staking.test.js tests/unit/wallet_logic.test.js",
+    "test:perf": "node tests/perf/perf_benchmark.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.3.0",
@@ -23,7 +25,7 @@
     "cross-env": "^7.0.3",
     "crypto-js": "^4.1.1",
     "crypto-random-string": "^5.0.0",
-    "csv-parse": "^5.3.10",
+    "csv-parse": "^5.5.6",
     "ethers": "^6.13.4",
     "geckodriver": "^4.0.4",
     "jdenticon": "^3.2.0",
@@ -55,6 +57,7 @@
   },
   "devDependencies": {
     "@modyfi/vite-plugin-yaml": "^1.0.4",
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^20.1.4",
     "@vitejs/plugin-vue": "^4.2.3",
     "@vue/eslint-config-typescript": "^7.0.0",
@@ -65,13 +68,21 @@
     "eslint-plugin-vue": "^7.20.0",
     "nightwatch": "^3.9.0",
     "npm-run-all": "^4.1.5",
-    "postcss": "^8.4.24",
+    "postcss": "^8.4.31",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.0.4",
     "vite": "^4.3.5",
     "vue-tsc": "^2.1.6"
   },
   "overrides": {
-    "semver": "^7.5.3"
+    "semver": "^7.5.3",
+    "dompurify": "^3.2.4",
+    "nanoid": "^3.3.8",
+    "ws": "^8.18.0",
+    "pbkdf2": "^3.1.7",
+    "shell-quote": "^1.8.2"
+  },
+  "optionalDependencies": {
+    "@esbuild/darwin-x64": "^0.18.20"
   }
 }

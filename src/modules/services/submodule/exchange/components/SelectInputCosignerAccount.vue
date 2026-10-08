@@ -7,7 +7,7 @@
                 <template #value="slotProps">
                     <div v-if="slotProps.value" class="account-item-value account-item">
                         <div class='flex'>
-                            <div v-html="selectedImg" />
+                            <div v-safe-html="selectedImg" />
                             <div class='flex flex-col ml-2 text-left'>
                                 <div class='text-blue-primary font-semibold text-xxs uppercase' style="line-height: 9px;">
                                     Selected Multisig Account</div>
@@ -20,7 +20,7 @@
                 <template #option="slotProps">
                     <div class="account-item">
                         <div class='flex items-center'>
-                            <div v-html="toSvg(slotProps.option.value, 20, jdenticonConfig)" />
+                            <div v-safe-html="toSvg(slotProps.option.value, 20, jdenticonConfig)" />
                             <div class='text-xs ml-2 font-semibold'>{{ slotProps.option.label }}</div>
                         </div>
                     </div>

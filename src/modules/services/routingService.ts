@@ -5,6 +5,7 @@ import { SettingsRoutes } from '@/modules/services/submodule/settings/routingSet
 import { AssetsRoutes } from '@/modules/services/submodule/assets/routingAssets';
 import { StackingRoutes } from '@/modules/services/submodule/stacking/routingStacking';
 import { ExchangeRoutes } from './submodule/exchange/routingExchange';
+import { DelegatedHarvestingRoutes } from './submodule/delegatedHarvesting/routingDelegatedHarvesting';
 import { RouteRecordRaw } from 'vue-router'
 
 export const ServiceRoutes: RouteRecordRaw[] = [
@@ -50,5 +51,6 @@ export const ServiceRoutes: RouteRecordRaw[] = [
   ...SettingsRoutes,
   ...AssetsRoutes,
   ...StackingRoutes,
-   ...ExchangeRoutes
+  ...ExchangeRoutes,
+  ...DelegatedHarvestingRoutes
 ];

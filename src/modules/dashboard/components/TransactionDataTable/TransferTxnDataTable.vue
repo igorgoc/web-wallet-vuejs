@@ -133,7 +133,7 @@
       <Column :header="$t('general.message')" headerStyle="width:40px;" v-if="wideScreen">
         <template #body="{data}">
           <div class="flex justify-center">
-            <img src="@/modules/dashboard/img/icon-message.svg" v-tooltip.left="{ value:'<tiptitle>' + data.messageTypeTitle + '</tiptitle><tiptext>' + data.message + '</tiptext>', escape: false}" v-if="data.message && data.messageType !== 1">
+            <img src="@/modules/dashboard/img/icon-message.svg" v-tooltip.left="{ value:'<tiptitle>' + data.messageTypeTitle + '</tiptitle><tiptext>' + Helper.escapeHtml(data.message) + '</tiptext>', escape: false}" v-if="data.message && data.messageType !== 1">
             <DecryptMessageModal v-else-if="data.message && data.messageType !== 0"  :messageTypeTitle="data.messageTypeTitle" :message="data.message" :recipientAddress="data.recipient" :initiator="data.initiator"/>
             <div v-else class="w-full text-center">-</div>
           </div>
