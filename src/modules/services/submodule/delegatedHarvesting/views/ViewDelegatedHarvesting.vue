@@ -1495,20 +1495,33 @@ const refreshAccountDetails = async () => {
         const pubAcc = Helper.createPublicAccount(selectedPublicKey.value, AppState.networkType);
         const txs = await AppState.chainAPI.accountAPI.outgoingTransactions(pubAcc, new TransactionQueryParams());
         if (Array.isArray(txs)) {
-          const hasDelegationTx = txs.some(
+          const delegationTx = txs.find(
             (t: any) =>
               (t.type === 16724 || (t.type as any) === TransactionType.TRANSFER) &&
               t.message &&
               t.message.type === 1
           );
-          if (hasDelegationTx) {
+          if (delegationTx) {
             isDelegationAnnouncedOnChain.value = true;
             if (selectedAddress.value && !localStorage.getItem(`delegated_node_${selectedAddress.value}`)) {
+              const recipientRaw = (delegationTx as any).recipient?.address || (delegationTx as any).recipient;
+              const cleanRecipient = typeof recipientRaw === "string" ? recipientRaw : (recipientRaw?.plain?.() || "");
+              
+              const matchedValidator = discoveredValidators.value.find(
+                (v) => (v.nodePublicKey && Helper.createPublicAccount(v.nodePublicKey, AppState.networkType).address.plain() === cleanRecipient) ||
+                       (v.nodePublicKey && v.nodePublicKey.toUpperCase() === cleanRecipient.toUpperCase())
+              );
+
+              const resolvedNodeName = matchedValidator?.name ||
+                (cleanRecipient === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" || cleanRecipient.includes("1D33")
+                  ? "mainnet-validator-zaginagaldica"
+                  : (cleanRecipient ? `Validator (${cleanRecipient.slice(0, 6)}...${cleanRecipient.slice(-4)})` : "Community Validator"));
+
               localStorage.setItem(
                 `delegated_node_${selectedAddress.value}`,
                 JSON.stringify({
-                  nodePublicKey: "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2",
-                  nodeName: "mainnet-validator-zaginagaldica",
+                  nodePublicKey: matchedValidator?.nodePublicKey || "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2",
+                  nodeName: resolvedNodeName,
                   announcedAt: Date.now(),
                 })
               );
