@@ -18,6 +18,7 @@ export interface ValidatorCandidate {
   nodePublicKey?: string;
   location?: string;
   isDefault?: boolean;
+  maxSlots?: number;
 }
 
 export interface VerifiedValidator extends ValidatorCandidate {
@@ -137,6 +138,8 @@ export class ValidatorDiscoveryService {
               } catch {}
             }
 
+            const onchainMaxSlots = typeof parsed.maxSlots === "number" && parsed.maxSlots > 0 ? parsed.maxSlots : 10;
+
             candidates.push({
               id: `onchain-${targetPub.slice(0, 8)}-${candidates.length}`,
               name: cleanName,
@@ -145,6 +148,7 @@ export class ValidatorDiscoveryService {
               nodePublicKey: parsed.nodePublicKey || parsed.harvestPublicKey || targetPub,
               location: cleanLocation,
               isDefault: false,
+              maxSlots: onchainMaxSlots,
             });
           }
         } catch (itemErr) {
@@ -184,7 +188,7 @@ export class ValidatorDiscoveryService {
         online: true,
         pingMs,
         activeSlots: 0,
-        maxSlots: 1000,
+        maxSlots: candidate.maxSlots || 10,
         features: ["onchain_delegated_listener", "delegated_harvesting_hotload"],
         eligible: true,
         nodePublicKey: nodePubKey,
@@ -274,7 +278,7 @@ export class ValidatorDiscoveryService {
           online: true,
           pingMs: Math.max(10, pingMs),
           activeSlots: 0,
-          maxSlots: 1000,
+          maxSlots: candidate.maxSlots || 10,
           features: ["onchain_delegated_listener", "delegated_harvesting_hotload"],
           eligible: true,
           statusReason: "On-Chain Mode (Zero-NAT)",
