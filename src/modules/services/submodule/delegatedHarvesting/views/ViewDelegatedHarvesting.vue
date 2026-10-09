@@ -1108,7 +1108,6 @@ const isActivelyHarvesting = computed(() => {
 });
 
 const activeNodeName = computed(() => {
-  if (selectedValidator.value) return selectedValidator.value.name;
   if (selectedAddress.value) {
     const saved = localStorage.getItem(`delegated_node_${selectedAddress.value}`);
     if (saved) {
@@ -1118,6 +1117,7 @@ const activeNodeName = computed(() => {
       } catch {}
     }
   }
+  if (selectedValidator.value) return selectedValidator.value.name;
   return "mainnet-validator-zaginagaldica";
 });
 

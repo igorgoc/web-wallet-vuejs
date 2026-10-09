@@ -306,8 +306,14 @@ export class ValidatorDiscoveryService {
   public static async discoverAndProbeAll(): Promise<VerifiedValidator[]> {
     const onChainCandidates = await this.fetchOnChainCandidates();
 
+    // On HTTPS origins, HTTP localhost endpoints are blocked by browser mixed-content security
+    const isHttps = typeof location !== "undefined" && location.protocol === "https:";
+    const filteredDefaults = isHttps
+      ? DEFAULT_VALIDATORS.filter((c) => !c.endpoint.startsWith("http://localhost") && !c.endpoint.startsWith("http://127.0.0.1"))
+      : DEFAULT_VALIDATORS;
+
     // Combine default and on-chain candidates
-    const allCandidates = [...DEFAULT_VALIDATORS, ...onChainCandidates];
+    const allCandidates = [...filteredDefaults, ...onChainCandidates];
 
     // Deduplicate by clean endpoint
     const seenEndpoints = new Set<string>();
@@ -326,14 +332,28 @@ export class ValidatorDiscoveryService {
       uniqueCandidates.map((candidate) => this.probeValidatorHealth(candidate))
     );
 
-    // Sort: Eligible nodes first, then by ping (lowest latency first), then ineligible/offline
-    return probed.sort((a, b) => {
+    // Deduplicate by nodePublicKey if present: keep eligible/online nodes over offline duplicates
+    const seenNodeKeys = new Set<string>();
+    const deduplicated: VerifiedValidator[] = [];
+
+    // Prioritize eligible and online nodes first during deduplication
+    const sorted = probed.sort((a, b) => {
       if (a.eligible && !b.eligible) return -1;
       if (!a.eligible && b.eligible) return 1;
       if (a.online && !b.online) return -1;
       if (!a.online && b.online) return 1;
       return a.pingMs - b.pingMs;
     });
+
+    for (const p of sorted) {
+      const key = p.nodePublicKey ? p.nodePublicKey.toUpperCase() : p.endpoint.toLowerCase();
+      if (!seenNodeKeys.has(key)) {
+        seenNodeKeys.add(key);
+        deduplicated.push(p);
+      }
+    }
+
+    return deduplicated;
   }
 
   /**
