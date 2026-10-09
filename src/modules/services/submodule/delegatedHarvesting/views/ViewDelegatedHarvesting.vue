@@ -813,6 +813,94 @@ const closePasswordModal = () => {
   passwordErr.value = "";
 };
 
+const executeOnChainDelegation = async (password: string, remoteKey: string) => {
+  const currentAccount = walletState.currentLoggedInWallet?.accounts.find(
+    (a) => a.address === selectedAddress.value
+  );
+  if (!currentAccount) {
+    throw new Error("Current wallet account not found.");
+  }
+  let senderPrivKey: string;
+  try {
+    senderPrivKey = WalletUtils.decryptPrivateKey(
+      new Password(password),
+      currentAccount.encrypted,
+      currentAccount.iv
+    );
+  } catch {
+    throw new Error("Failed to decrypt sender account private key.");
+  }
+
+  const targetNodeKey = targetNodePublicKey.value;
+  if (!targetNodeKey || targetNodeKey.length !== 64) {
+    throw new Error("Target validator node public key is missing or invalid.");
+  }
+
+  const payloadObj = {
+    type: "sirius.delegated_staking",
+    version: 1,
+    action: "link",
+    remotePrivateKey: remoteKey,
+  };
+  const payloadJson = JSON.stringify(payloadObj);
+  const nodePubAcc = PublicAccount.createFromPublicKey(
+    targetNodeKey,
+    AppState.networkType
+  );
+  const encMsg = EncryptedMessage.create(
+    payloadJson,
+    nodePubAcc,
+    senderPrivKey
+  );
+
+  let recipientPubAcc = nodePubAcc;
+  try {
+    if (AppState.chainAPI && AppState.chainAPI.accountAPI) {
+      const targetAccInfo = await AppState.chainAPI.accountAPI.getAccountInfo(nodePubAcc.address);
+      if (
+        ((targetAccInfo.accountType as any) === AccountType.Remote || (targetAccInfo.accountType as any) === 2) &&
+        targetAccInfo.linkedAccountKey &&
+        targetAccInfo.linkedAccountKey !== "0".repeat(64)
+      ) {
+        // Target is a remote harvester key; redirect transfer recipient to linked main account
+        recipientPubAcc = PublicAccount.createFromPublicKey(
+          targetAccInfo.linkedAccountKey,
+          AppState.networkType
+        );
+      }
+    }
+  } catch (lookupErr) {
+    console.warn("[DelegatedHarvesting] Target account info lookup fallback:", lookupErr);
+  }
+
+  const transferTx = AppState.buildTxn
+    .transferBuilder()
+    .recipient(recipientPubAcc.address)
+    .mosaics([])
+    .message(encMsg)
+    .build();
+
+  TransactionState.unsignedTransactionPayload = transferTx.serialize();
+  TransactionState.selectedAddress = selectedAddress.value;
+
+  if (selectedAddress.value) {
+    const nodeName = selectedValidator.value?.name || (targetNodeKey === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" ? "mainnet-validator-zaginagaldica" : "Custom Node");
+    localStorage.setItem(
+      `delegated_node_${selectedAddress.value}`,
+      JSON.stringify({
+        nodePublicKey: targetNodeKey,
+        nodeName: nodeName,
+        nodeEndpoint: targetNodeUrl.value,
+        announcedAt: Date.now(),
+      })
+    );
+    isDelegationAnnouncedOnChain.value = true;
+  }
+
+  isSubmitting.value = false;
+  router.push({ name: "ViewConfirmTransaction" });
+};
+
 const onConfirmPasswordModal = async () => {
   if (!walletPasswdInput.value || walletPasswdInput.value.length < 8) {
     passwordErr.value = "Password must be at least 8 characters.";
@@ -890,100 +978,30 @@ const onConfirmPasswordModal = async () => {
       });
     }
   } else if (passwordModalAction.value === "unlockAndBroadcastOnChain") {
-    const keyToUse = activeOrSavedPrivateKey.value || remotePrivateKeyInput.value.trim();
+    // If remote key is not yet decrypted in memory, decrypt it with this password
+    if (!unlockedPrivateKey.value) {
+      const record =
+        getStoredRemoteKeyRecord(selectedAddress.value) ||
+        getStoredRemoteKeyRecord(linkedRemotePubKey.value);
+      if (record && record.type === "encrypted") {
+        const dec = decryptStoredRecord(record.data, walletPasswdInput.value);
+        if (dec && isValidForLinkedKey(dec)) {
+          unlockedPrivateKey.value = dec;
+          remotePrivateKeyInput.value = dec;
+          restoredPrivateKeyInput.value = dec;
+        }
+      }
+    }
+
+    const keyToUse = activeOrSavedPrivateKey.value || unlockedPrivateKey.value || remotePrivateKeyInput.value.trim();
     if (!keyToUse) {
       passwordErr.value = "Remote key missing.";
       return;
     }
-    const currentAccount = walletState.currentLoggedInWallet?.accounts.find(
-      (a) => a.address === selectedAddress.value
-    );
-    if (!currentAccount) {
-      passwordErr.value = "Current wallet account not found.";
-      return;
-    }
-    let senderPrivKey: string;
-    try {
-      senderPrivKey = WalletUtils.decryptPrivateKey(
-        new Password(walletPasswdInput.value),
-        currentAccount.encrypted,
-        currentAccount.iv
-      );
-    } catch {
-      passwordErr.value = "Failed to decrypt sender account private key.";
-      return;
-    }
-
-    const targetNodeKey = targetNodePublicKey.value;
-    if (!targetNodeKey || targetNodeKey.length !== 64) {
-      passwordErr.value = "Target validator node public key is missing or invalid.";
-      return;
-    }
 
     try {
-      const payloadObj = {
-        type: "sirius.delegated_staking",
-        version: 1,
-        action: "link",
-        remotePrivateKey: keyToUse,
-      };
-      const payloadJson = JSON.stringify(payloadObj);
-      const nodePubAcc = PublicAccount.createFromPublicKey(
-        targetNodeKey,
-        AppState.networkType
-      );
-      const encMsg = EncryptedMessage.create(
-        payloadJson,
-        nodePubAcc,
-        senderPrivKey
-      );
-
-      let recipientPubAcc = nodePubAcc;
-      try {
-        if (AppState.chainAPI && AppState.chainAPI.accountAPI) {
-          const targetAccInfo = await AppState.chainAPI.accountAPI.getAccountInfo(nodePubAcc.address);
-          if (
-            ((targetAccInfo.accountType as any) === AccountType.Remote || (targetAccInfo.accountType as any) === 2) &&
-            targetAccInfo.linkedAccountKey &&
-            targetAccInfo.linkedAccountKey !== "0".repeat(64)
-          ) {
-            // Target is a remote harvester key; redirect transfer recipient to linked main account
-            recipientPubAcc = PublicAccount.createFromPublicKey(
-              targetAccInfo.linkedAccountKey,
-              AppState.networkType
-            );
-          }
-        }
-      } catch (lookupErr) {
-        console.warn("[DelegatedHarvesting] Target account info lookup fallback:", lookupErr);
-      }
-
-      const transferTx = AppState.buildTxn
-        .transferBuilder()
-        .recipient(recipientPubAcc.address)
-        .mosaics([])
-        .message(encMsg)
-        .build();
-
-      TransactionState.unsignedTransactionPayload = transferTx.serialize();
-      TransactionState.selectedAddress = selectedAddress.value;
-
-      if (selectedAddress.value) {
-        const nodeName = selectedValidator.value?.name || (targetNodeKey === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" ? "mainnet-validator-zaginagaldica" : "Custom Node");
-        localStorage.setItem(
-          `delegated_node_${selectedAddress.value}`,
-          JSON.stringify({
-            nodePublicKey: targetNodeKey,
-            nodeName: nodeName,
-            nodeEndpoint: targetNodeUrl.value,
-            announcedAt: Date.now(),
-          })
-        );
-        isDelegationAnnouncedOnChain.value = true;
-      }
-
+      await executeOnChainDelegation(walletPasswdInput.value, keyToUse);
       closePasswordModal();
-      router.push({ name: "ViewConfirmTransaction" });
     } catch (err: any) {
       passwordErr.value = `Failed to create encrypted delegation transaction: ${err.message}`;
     }
@@ -1604,8 +1622,30 @@ const broadcastAddHarvester = () => {
 
 // Submit key to node
 const submitKeyToNode = async () => {
+  // If stored key is encrypted and not yet unlocked, check if we already have session password
   if (hasStoredEncryptedKey.value && (!activeOrSavedPrivateKey.value || !unlockedPrivateKey.value)) {
-    openPasswordModal("unlockAndSubmit");
+    if (currentSessionPassword.value) {
+      const record =
+        getStoredRemoteKeyRecord(selectedAddress.value) ||
+        getStoredRemoteKeyRecord(linkedRemotePubKey.value);
+      if (record && record.type === "encrypted") {
+        const dec = decryptStoredRecord(record.data, currentSessionPassword.value);
+        if (dec && isValidForLinkedKey(dec)) {
+          unlockedPrivateKey.value = dec;
+          remotePrivateKeyInput.value = dec;
+          restoredPrivateKeyInput.value = dec;
+        }
+      }
+    }
+  }
+
+  // If still not unlocked, prompt user with password modal
+  if (hasStoredEncryptedKey.value && (!activeOrSavedPrivateKey.value || !unlockedPrivateKey.value)) {
+    if (isOnChainMode.value) {
+      openPasswordModal("unlockAndBroadcastOnChain");
+    } else {
+      openPasswordModal("unlockAndSubmit");
+    }
     return;
   }
 
@@ -1643,6 +1683,21 @@ const submitKeyToNode = async () => {
       nodeMessage.value = "Target validator node public key is missing or invalid. Please select an eligible validator.";
       return;
     }
+
+    // Fast-path: if session password is known (e.g. key was already unlocked), prepare tx directly without prompt!
+    if (currentSessionPassword.value) {
+      try {
+        isSubmitting.value = true;
+        await executeOnChainDelegation(currentSessionPassword.value, keyToUse);
+        return;
+      } catch (err: any) {
+        console.warn("[DelegatedHarvesting] Session password auto-delegation failed, requesting password modal:", err);
+        isSubmitting.value = false;
+        openPasswordModal("unlockAndBroadcastOnChain");
+        return;
+      }
+    }
+
     openPasswordModal("unlockAndBroadcastOnChain");
     return;
   }
