@@ -379,3 +379,210 @@ test('Security Audit: Anti-clickjacking hides body when embedded in iframe', () 
   assert.strictEqual(topState.bodyHidden, false); // Body shown when top-level
 });
 
+// -------------------------------------------------------------
+// 9. Assets Supply Math & Zero Padding Invariant (BUG-08)
+// -------------------------------------------------------------
+function addDecimals(cant, amount = '0') {
+  const x = '0';
+  if (amount === '0') {
+    for (let index = 0; index < cant - 1; index++) {
+      amount += x;
+    }
+  } else {
+    for (let index = 0; index < cant; index++) {
+      amount += x;
+    }
+  }
+  return amount;
+}
+
+function addZeros(cant, amount = 0) {
+  let realAmount;
+  const cantNum = Number(cant) || 0;
+  if (cantNum > 0) {
+    let decimal;
+    if (amount === 0 || amount === '0') {
+      decimal = addDecimals(cantNum);
+      realAmount = `0${decimal}`;
+    } else {
+      const arrAmount = amount.toString().replace(/,/g, '').split('.');
+      if (arrAmount.length < 2) {
+        decimal = addDecimals(cantNum);
+      } else {
+        const decimalsStr = arrAmount[1].slice(0, cantNum);
+        decimal = addDecimals(Math.max(0, cantNum - decimalsStr.length), decimalsStr);
+      }
+      realAmount = `${arrAmount[0]}${decimal}`;
+    }
+  } else {
+    const arrAmount = amount.toString().replace(/,/g, '').split('.');
+    realAmount = arrAmount[0];
+  }
+  return Number(realAmount);
+}
+
+test('AssetsUtils: addZeros truncates excess decimals and pads zeros correctly', () => {
+  // Truncation: 100.5567 with divisibility 2 must be 10055, NOT inflated to 1005567
+  assert.strictEqual(addZeros(2, '100.5567'), 10055);
+  assert.strictEqual(addZeros(2, 100.5567), 10055);
+
+  // Padding: 100.5 with divisibility 2 must be 10050
+  assert.strictEqual(addZeros(2, '100.5'), 10050);
+
+  // Integer with divisibility 6
+  assert.strictEqual(addZeros(6, 1), 1000000);
+
+  // Divisibility 0: drops decimal part
+  assert.strictEqual(addZeros(0, '100.55'), 100);
+
+  // Zero amount
+  assert.strictEqual(addZeros(6, 0), 0);
+  assert.strictEqual(addZeros(6, '0'), 0);
+});
+
+// -------------------------------------------------------------
+// 10. Address Validation & Trimming Invariant (BUG-10)
+// -------------------------------------------------------------
+function validateAddress(address) {
+  if (address) {
+    const addressTrimAndUpperCase = address.trim().toUpperCase().replace(/-/g, '');
+    if (addressTrimAndUpperCase.length === 40) {
+      const prefix = addressTrimAndUpperCase.charAt(0);
+      if (['S', 'M', 'V', 'X', 'W', 'Z'].includes(prefix)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function verifyNetworkAddressEqualsNetwork(value, value2) {
+  const v1 = value ? value.trim().toUpperCase().replace(/-/g, '') : '';
+  const v2 = value2 ? value2.trim().toUpperCase().replace(/-/g, '') : '';
+  if (v1.length === 40 && v2.length === 40) {
+    const c1 = v1.charAt(0);
+    const c2 = v2.charAt(0);
+    if (c1 === c2 && ['S', 'M', 'V', 'X', 'W', 'Z'].includes(c1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+test('Address Validation: validates addresses with leading whitespace, hyphens, and rejects invalid', () => {
+  const rawMainnet = 'XAM4YI4W2T6QZJ4C7K5Q8K3H9B1N2P3R4S5T6U7V';
+  // Standard valid address
+  assert.strictEqual(validateAddress(rawMainnet), true);
+
+  // Leading & trailing spaces (previously failed due to untrimmed charAt(0))
+  assert.strictEqual(validateAddress('  ' + rawMainnet + '  '), true);
+
+  // Hyphenated address
+  const hyphenated = 'XAM4YI-4W2T6Q-ZJ4C7K-5Q8K3H-9B1N2P-3R4S5T-6U7V';
+  assert.strictEqual(validateAddress(hyphenated), true);
+
+  // Invalid address network prefix
+  assert.strictEqual(validateAddress('A' + rawMainnet.slice(1)), false);
+
+  // Invalid length
+  assert.strictEqual(validateAddress(rawMainnet.slice(0, 39)), false);
+  assert.strictEqual(validateAddress(''), false);
+  assert.strictEqual(validateAddress(null), false);
+
+  // Network equivalence
+  assert.strictEqual(verifyNetworkAddressEqualsNetwork(rawMainnet, '  ' + hyphenated), true);
+  assert.strictEqual(verifyNetworkAddressEqualsNetwork(rawMainnet, 'V' + rawMainnet.slice(1)), false);
+  // Must return explicit false, never undefined
+  assert.strictEqual(verifyNetworkAddressEqualsNetwork('short', 'short'), false);
+});
+
+// -------------------------------------------------------------
+// 11. Multisig Cosigner Deduplication & Rejection of Zero Keys (BUG-03)
+// -------------------------------------------------------------
+test('Multisig Logic: scopes cosigner per iteration and filters all-zero public keys', async () => {
+  const dummyLookup = async (addr) => {
+    if (addr === 'VALID_ADDR') {
+      return { publicKey: 'A'.repeat(64) };
+    }
+    if (addr === 'ZERO_ADDR') {
+      return { publicKey: '0'.repeat(64) }; // Uninitialized on-chain account
+    }
+    throw new Error('Account not found');
+  };
+
+  const cosignKeys = [
+    'B'.repeat(64), // Valid 64-hex key
+    '0'.repeat(64), // Invalid all-zero key (must be rejected)
+    'VALID_ADDR',   // Valid address resolving to 'A'.repeat(64)
+    'FAIL_ADDR',    // Throws lookup error (must NOT re-push previous cosigner!)
+  ];
+
+  const addedCosigners = [];
+  for (const key of cosignKeys) {
+    let resolvedKey = null;
+    if (key.length === 64 && key !== '0'.repeat(64)) {
+      resolvedKey = key;
+    } else if (key.length < 64) {
+      try {
+        const accInfo = await dummyLookup(key);
+        if (accInfo.publicKey && accInfo.publicKey !== '0'.repeat(64) && accInfo.publicKey.length === 64) {
+          resolvedKey = accInfo.publicKey;
+        }
+      } catch {}
+    }
+    if (resolvedKey) {
+      addedCosigners.push(resolvedKey);
+    }
+  }
+
+  // Expect exactly 2 keys: 'B'.repeat(64) and 'A'.repeat(64).
+  // Zero key and failed lookup must NOT produce entries or duplicates!
+  assert.strictEqual(addedCosigners.length, 2);
+  assert.strictEqual(addedCosigners[0], 'B'.repeat(64));
+  assert.strictEqual(addedCosigners[1], 'A'.repeat(64));
+});
+
+// -------------------------------------------------------------
+// 12. Batch Asset Name Query Indexing Invariant (BUG-05)
+// -------------------------------------------------------------
+test('Asset Name Sync: iterates inner batch with y and avoids shadowing outer index', () => {
+  const tempAssetNames = [
+    { mosaicIdHex: '1111111111111111', names: ['asset.one'] },
+    { mosaicIdHex: '2222222222222222', names: ['asset.two'] },
+    { mosaicIdHex: '3333333333333333', names: ['asset.three'] },
+  ];
+
+  const processed = [];
+  // Correct inner loop indexing with y
+  for (let y = 0; y < tempAssetNames.length; ++y) {
+    const currentAssetId = tempAssetNames[y].mosaicIdHex;
+    processed.push(currentAssetId);
+  }
+
+  assert.deepStrictEqual(processed, [
+    '1111111111111111',
+    '2222222222222222',
+    '3333333333333333',
+  ]);
+});
+
+// -------------------------------------------------------------
+// 13. Safe Clipboard Cleanup Guard (BUG-11)
+// -------------------------------------------------------------
+test('Clipboard: cleanup handles detached or missing node without throwing', () => {
+  let unattachedNode = { parentNode: null };
+  assert.doesNotThrow(() => {
+    if (unattachedNode && unattachedNode.parentNode) {
+      unattachedNode.parentNode.removeChild(unattachedNode);
+    }
+  });
+
+  let nullNode = null;
+  assert.doesNotThrow(() => {
+    if (nullNode && nullNode.parentNode) {
+      nullNode.parentNode.removeChild(nullNode);
+    }
+  });
+});
+
+

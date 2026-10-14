@@ -382,7 +382,7 @@ export class WalletUtils {
 
                 for (let y = 0; y < tempAssetNames.length; ++y) {
                     
-                    let currentAssetId = tempAssetNames[i].mosaicId.toHex();
+                    let currentAssetId = tempAssetNames[y].mosaicId.toHex();
 
                     foundAssetIds.push(currentAssetId);
 
@@ -392,7 +392,7 @@ export class WalletUtils {
                         let assetInfo = AppState.assetsInfo[index];
                         let oldNames = assetInfo.namespaceNames.join(",");
                         
-                        assetInfo.namespaceNames = tempAssetNames[i].names.map(x => x.name);
+                        assetInfo.namespaceNames = tempAssetNames[y].names.map(x => x.name);
 
                         let newNames = assetInfo.namespaceNames.join(",");
 
@@ -404,8 +404,8 @@ export class WalletUtils {
                 
                 let notFoundAssetId = requestDataPlain.filter(x => !foundAssetIds.includes(x));
 
-                for(let i = 0; i < notFoundAssetId.length; ++i){
-                    let index = assetsInfoIdHex.indexOf(notFoundAssetId[i]);
+                for(let k = 0; k < notFoundAssetId.length; ++k){
+                    let index = assetsInfoIdHex.indexOf(notFoundAssetId[k]);
                     
                     if (index > -1) {
                         let assetInfo = AppState.assetsInfo[index];
@@ -416,7 +416,7 @@ export class WalletUtils {
                         let newNames = assetInfo.namespaceNames.join(",");
 
                         if(oldNames !== newNames){
-                            changedAssetId.push(notFoundAssetId[i]);
+                            changedAssetId.push(notFoundAssetId[k]);
                         }
                     }
                 }
@@ -840,20 +840,21 @@ export class WalletUtils {
   
      */
     static validateAddress(address: string): boolean {
-        if (address !== '') {
+        if (address) {
             const addressTrimAndUpperCase = address.trim().toUpperCase().replace(/-/g, '');
             if (addressTrimAndUpperCase.length === 40) {
-                if (address.charAt(0) === 'S') {
+                const prefix = addressTrimAndUpperCase.charAt(0);
+                if (prefix === 'S') {
                     return true;
-                } else if (address.charAt(0) === 'M') {
+                } else if (prefix === 'M') {
                     return true;
-                } else if (address.charAt(0) === 'V') {
+                } else if (prefix === 'V') {
                     return true;
-                } else if (address.charAt(0) === 'X') {
+                } else if (prefix === 'X') {
                     return true;
-                } else if (address.charAt(0) === 'W') {
+                } else if (prefix === 'W') {
                     return true;
-                } else if (address.charAt(0) === 'Z') {
+                } else if (prefix === 'Z') {
                     return true;
                 }
             }
@@ -871,23 +872,25 @@ export class WalletUtils {
   
      */
     static verifyNetworkAddressEqualsNetwork(value: string, value2: string): boolean {
-        if ((value.length === 40 || value.length === 46) && (value2.length === 40 || value2.length === 46)) {
-            if (value.charAt(0) === 'S' && value2.charAt(0) === 'S') {
+        const v1 = value ? value.trim().toUpperCase().replace(/-/g, '') : '';
+        const v2 = value2 ? value2.trim().toUpperCase().replace(/-/g, '') : '';
+        if (v1.length === 40 && v2.length === 40) {
+            if (v1.charAt(0) === 'S' && v2.charAt(0) === 'S') {
                 // NetworkType.MIJIN_TEST
                 return true;
-            } else if (value.charAt(0) === 'M' && value2.charAt(0) === 'M') {
+            } else if (v1.charAt(0) === 'M' && v2.charAt(0) === 'M') {
                 // NetworkType.MIJIN
                 return true;
-            } else if (value.charAt(0) === 'V' && value2.charAt(0) === 'V') {
+            } else if (v1.charAt(0) === 'V' && v2.charAt(0) === 'V') {
                 // NetworkType.TEST_NET
                 return true;
-            } else if (value.charAt(0) === 'X' && value2.charAt(0) === 'X') {
+            } else if (v1.charAt(0) === 'X' && v2.charAt(0) === 'X') {
                 // NetworkType.MAIN_NET
                 return true;
-            } else if (value.charAt(0) === 'W' && value2.charAt(0) === 'W') {
+            } else if (v1.charAt(0) === 'W' && v2.charAt(0) === 'W') {
                 // NetworkType.PRIVATE_TEST
                 return true;
-            } else if (value.charAt(0) === 'Z' && value2.charAt(0) === 'Z') {
+            } else if (v1.charAt(0) === 'Z' && v2.charAt(0) === 'Z') {
                 // NetworkType.PRIVATE
                 return true;
             } else {
@@ -895,6 +898,7 @@ export class WalletUtils {
                 return false;
             }
         }
+        return false;
     }
 
     /**
@@ -2112,15 +2116,14 @@ export class WalletUtils {
      */
     static async getWalletCreatorExraAssets(wallet: Wallet): Promise<void> {
 
-        let queryParams: MosaicQueryParams = new MosaicQueryParams();
-        queryParams.pageSize = 100;
-        queryParams.pageNumber = 1;
-
         let accsAssetHold: AccountAssetHold[] = [];
         let assetSearchList = [];
 
         for (let i = 0; i < wallet.accounts.length; ++i) {
 
+            let queryParams: MosaicQueryParams = new MosaicQueryParams();
+            queryParams.pageSize = 100;
+            queryParams.pageNumber = 1;
             queryParams.ownerFilters = new MosaicCreatorFilters(wallet.accounts[i].publicKey);
             queryParams.ownerFilters.holding = false;
 
@@ -2139,6 +2142,9 @@ export class WalletUtils {
 
         for (let i = 0; i < wallet.others.length; ++i) {
 
+            let queryParams: MosaicQueryParams = new MosaicQueryParams();
+            queryParams.pageSize = 100;
+            queryParams.pageNumber = 1;
             queryParams.ownerFilters = new MosaicCreatorFilters(wallet.others[i].publicKey);
             queryParams.ownerFilters.holding = false;
 
@@ -2174,6 +2180,8 @@ export class WalletUtils {
 
             for(let y=2; y <= totalPages; ++y){
 
+                let queryParams: MosaicQueryParams = new MosaicQueryParams();
+                queryParams.pageSize = 100;
                 queryParams.ownerFilters = new MosaicCreatorFilters(queryingPublicKey);
                 queryParams.ownerFilters.holding = false;
                 queryParams.pageNumber = y;
@@ -2229,14 +2237,13 @@ export class WalletUtils {
 
     static async getAccsCreatorExtraAssets(accs: MyAccount[]): Promise<void> {
 
-        let queryParams: MosaicQueryParams = new MosaicQueryParams();
-        queryParams.pageSize = 100;
-        queryParams.pageNumber = 1;
-
         let assetSearchList = [];
         let accsAssetHold: AccountAssetHold[] = [];
 
         for (let i = 0; i < accs.length; ++i) {
+            let queryParams: MosaicQueryParams = new MosaicQueryParams();
+            queryParams.pageSize = 100;
+            queryParams.pageNumber = 1;
             queryParams.ownerFilters = new MosaicCreatorFilters(accs[i].publicKey);
             queryParams.ownerFilters.holding = false;
 
@@ -2271,6 +2278,8 @@ export class WalletUtils {
 
             for(let y=2; y <= totalPages; ++y){
 
+                let queryParams: MosaicQueryParams = new MosaicQueryParams();
+                queryParams.pageSize = 100;
                 queryParams.ownerFilters = new MosaicCreatorFilters(queryingPublicKey);
                 queryParams.ownerFilters.holding = false;
                 queryParams.pageNumber = y;

@@ -69,8 +69,11 @@
             <span v-if="isActivelyHarvesting" class="text-xs text-green-600 font-semibold flex items-center gap-1">
               <span>&check;</span> Actively Harvesting
             </span>
+            <span v-else-if="isDelegationPendingConfirmation" class="text-xs text-amber-600 font-semibold flex items-center gap-1">
+              <span>⏳</span> Activation Pending Confirmation
+            </span>
             <span v-else-if="isHarvesterRegistered" class="text-xs text-amber-600 font-medium flex items-center gap-1">
-              <span>&check;</span> Registered Harvester
+              <span>&check;</span> Registered Harvester (Awaiting Step 4)
             </span>
             <span v-else class="text-xs text-gray-500 font-medium">
               Key Linked (Pending Registration)
@@ -91,7 +94,7 @@
             <div class="bg-gray-50 border border-gray-200 p-3 rounded">
               <span class="text-gray-500 text-xxs uppercase tracking-wider block">Connected Node</span>
               <span class="font-semibold text-gray-800 truncate mt-0.5 block" :title="activeNodeName">
-                {{ isActivelyHarvesting ? activeNodeName : 'Awaiting Step 4' }}
+                {{ isActivelyHarvesting ? activeNodeName : (isDelegationPendingConfirmation ? 'Connecting (Pending...)' : 'Awaiting Step 4') }}
               </span>
             </div>
           </div>
@@ -401,6 +404,27 @@
             </button>
           </div>
 
+          <!-- Pending confirmation banner -->
+          <div v-if="isDelegationPendingConfirmation" class="p-3 bg-amber-950/40 border border-amber-500/60 rounded text-xs space-y-1">
+            <div class="font-bold text-amber-400 flex items-center gap-1.5">
+              <span>⏳</span> Delegation Broadcast Pending
+            </div>
+            <div class="text-gray-300 text-xxs">
+              Your encrypted delegation transaction was broadcast and is awaiting block confirmation (~15s) on the network.
+            </div>
+          </div>
+
+          <!-- Step 4 abandoned/incomplete warning banner -->
+          <div v-else-if="showStep4IncompleteWarning" class="p-3 bg-red-950/40 border border-red-500/60 rounded text-xs space-y-1">
+            <div class="font-bold text-red-400 flex items-center justify-between">
+              <span>⚠️ Transaction Not Broadcast</span>
+              <button type="button" @click="showStep4IncompleteWarning = false" class="text-gray-400 hover:text-white cursor-pointer bg-transparent border-0 p-0 text-xs">&times;</button>
+            </div>
+            <div class="text-gray-300 text-xxs">
+              Your previous Step 4 activation was not signed on the confirmation screen. Please select a validator below and click "Activate on Node" to finish connecting.
+            </div>
+          </div>
+
           <!-- Prerequisites Checklist -->
           <div class="p-3 bg-navy-lighter/30 border border-navy-lighter/60 rounded text-xs space-y-2">
           <div class="font-bold text-gray-200 flex items-center justify-between pb-1.5 border-b border-navy-lighter/50">
@@ -666,6 +690,7 @@ import {
   PublicAccount,
   AccountType,
   Crypto,
+  WalletAlgorithm,
   Password,
   EncryptedMessage,
   TransactionQueryParams,
@@ -771,7 +796,7 @@ const decryptStoredRecord = (record: EncryptedRemoteKeyData, passwordStr: string
   try {
     const common = { password: passwordStr, privateKey: "" };
     const wallet = { encrypted: record.encrypted, iv: record.iv };
-    Crypto.passwordToPrivateKey(common, wallet, 1); // Pass_bip32
+    Crypto.passwordToPrivateKey(common, wallet, WalletAlgorithm.Pass_bip32);
     return common.privateKey || "";
   } catch {
     return "";
@@ -885,16 +910,15 @@ const executeOnChainDelegation = async (password: string, remoteKey: string) => 
 
   if (selectedAddress.value) {
     const nodeName = selectedValidator.value?.name || (targetNodeKey === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" ? "mainnet-validator-zaginagaldica" : "Custom Node");
-    localStorage.setItem(
-      `delegated_node_${selectedAddress.value}`,
+    sessionStorage.setItem(
+      `pending_delegation_${selectedAddress.value}`,
       JSON.stringify({
         nodePublicKey: targetNodeKey,
         nodeName: nodeName,
         nodeEndpoint: targetNodeUrl.value,
-        announcedAt: Date.now(),
+        initiatedAt: Date.now(),
       })
     );
-    isDelegationAnnouncedOnChain.value = true;
   }
 
   isSubmitting.value = false;
@@ -1118,11 +1142,13 @@ const customProbeResult = ref<VerifiedValidator | null>(null);
 const isDeactivating = ref<boolean>(false);
 const isKeyHotloadedOnNode = ref<boolean>(false);
 const isDelegationAnnouncedOnChain = ref<boolean>(false);
+const isDelegationPendingConfirmation = ref<boolean>(false);
+const showStep4IncompleteWarning = ref<boolean>(false);
 const showReannounceForm = ref<boolean>(false);
 const lastSignedBlockHeight = ref<number>(0);
 
 const isActivelyHarvesting = computed(() => {
-  return isHarvesterRegistered.value && (isKeyHotloadedOnNode.value || isDelegationAnnouncedOnChain.value || lastSignedBlockHeight.value > 0);
+  return isHarvesterRegistered.value && (isKeyHotloadedOnNode.value || (isDelegationAnnouncedOnChain.value && !isDelegationPendingConfirmation.value) || lastSignedBlockHeight.value > 0);
 });
 
 const activeNodeName = computed(() => {
@@ -1140,15 +1166,7 @@ const activeNodeName = computed(() => {
 });
 
 const checkNodeHotloadStatus = async () => {
-  // 1. Check local storage persistence
-  if (selectedAddress.value) {
-    const saved = localStorage.getItem(`delegated_node_${selectedAddress.value}`);
-    if (saved) {
-      isDelegationAnnouncedOnChain.value = true;
-    }
-  }
-
-  // 2. Query validator node if endpoint is accessible
+  // Query validator node if endpoint is accessible
   if (!targetNodeUrl.value) return;
   try {
     const res = await fetch(`${targetNodeUrl.value}/api/harvesting/delegated/list`);
@@ -1507,42 +1525,70 @@ const refreshAccountDetails = async () => {
     }
     await checkNodeHotloadStatus();
 
-    // Inspect on-chain outgoing transactions for delegation announcements
+    // Inspect on-chain outgoing transactions and unconfirmed transactions for delegation announcements
     if (selectedAddress.value && selectedPublicKey.value && AppState.chainAPI && AppState.chainAPI.accountAPI) {
       try {
         const pubAcc = Helper.createPublicAccount(selectedPublicKey.value, AppState.networkType);
-        const txs = await AppState.chainAPI.accountAPI.outgoingTransactions(pubAcc, new TransactionQueryParams());
-        if (Array.isArray(txs)) {
-          const delegationTx = txs.find(
-            (t: any) =>
-              (t.type === 16724 || (t.type as any) === TransactionType.TRANSFER) &&
-              t.message &&
-              t.message.type === 1
-          );
-          if (delegationTx) {
-            isDelegationAnnouncedOnChain.value = true;
-            if (selectedAddress.value && !localStorage.getItem(`delegated_node_${selectedAddress.value}`)) {
-              const recipientRaw = (delegationTx as any).recipient?.address || (delegationTx as any).recipient;
-              const cleanRecipient = typeof recipientRaw === "string" ? recipientRaw : (recipientRaw?.plain?.() || "");
-              
-              const matchedValidator = discoveredValidators.value.find(
-                (v) => (v.nodePublicKey && Helper.createPublicAccount(v.nodePublicKey, AppState.networkType).address.plain() === cleanRecipient) ||
-                       (v.nodePublicKey && v.nodePublicKey.toUpperCase() === cleanRecipient.toUpperCase())
-              );
+        const [txs, unconfirmedTxs] = await Promise.all([
+          AppState.chainAPI.accountAPI.outgoingTransactions(pubAcc, new TransactionQueryParams()).catch(() => []),
+          AppState.chainAPI.accountAPI.unconfirmedTransactions(pubAcc, new TransactionQueryParams()).catch(() => [])
+        ]);
 
-              const resolvedNodeName = matchedValidator?.name ||
-                (cleanRecipient === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" || cleanRecipient.includes("1D33")
-                  ? "mainnet-validator-zaginagaldica"
-                  : (cleanRecipient ? `Validator (${cleanRecipient.slice(0, 6)}...${cleanRecipient.slice(-4)})` : "Community Validator"));
+        const confirmedDelegationTx = Array.isArray(txs) ? txs.find(
+          (t: any) =>
+            (t.type === 16724 || (t.type as any) === TransactionType.TRANSFER) &&
+            t.message &&
+            t.message.type === 1
+        ) : null;
 
-              localStorage.setItem(
-                `delegated_node_${selectedAddress.value}`,
-                JSON.stringify({
-                  nodePublicKey: matchedValidator?.nodePublicKey || "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2",
-                  nodeName: resolvedNodeName,
-                  announcedAt: Date.now(),
-                })
-              );
+        const unconfirmedDelegationTx = Array.isArray(unconfirmedTxs) ? unconfirmedTxs.find(
+          (t: any) =>
+            (t.type === 16724 || (t.type as any) === TransactionType.TRANSFER) &&
+            t.message &&
+            t.message.type === 1
+        ) : null;
+
+        if (confirmedDelegationTx || unconfirmedDelegationTx) {
+          isDelegationPendingConfirmation.value = !confirmedDelegationTx && !!unconfirmedDelegationTx;
+          isDelegationAnnouncedOnChain.value = true;
+          showStep4IncompleteWarning.value = false;
+          if (selectedAddress.value) {
+            sessionStorage.removeItem(`pending_delegation_${selectedAddress.value}`);
+            const delegationTx = confirmedDelegationTx || unconfirmedDelegationTx;
+            const recipientRaw = (delegationTx as any).recipient?.address || (delegationTx as any).recipient;
+            const cleanRecipient = typeof recipientRaw === "string" ? recipientRaw : (recipientRaw?.plain?.() || "");
+
+            const matchedValidator = discoveredValidators.value.find(
+              (v) => (v.nodePublicKey && Helper.createPublicAccount(v.nodePublicKey, AppState.networkType).address.plain() === cleanRecipient) ||
+                     (v.nodePublicKey && v.nodePublicKey.toUpperCase() === cleanRecipient.toUpperCase())
+            );
+
+            const resolvedNodeName = matchedValidator?.name ||
+              (cleanRecipient === "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2" || cleanRecipient.includes("1D33")
+                ? "mainnet-validator-zaginagaldica"
+                : (cleanRecipient ? `Validator (${cleanRecipient.slice(0, 6)}...${cleanRecipient.slice(-4)})` : "Community Validator"));
+
+            localStorage.setItem(
+              `delegated_node_${selectedAddress.value}`,
+              JSON.stringify({
+                nodePublicKey: matchedValidator?.nodePublicKey || "1D339BA5E197D7AB2E4BFA9312B5C115040740F9F00C5E3BD7EA6F911B5827F2",
+                nodeName: resolvedNodeName,
+                announcedAt: Date.now(),
+              })
+            );
+          }
+        } else {
+          // Neither confirmed nor unconfirmed delegation found on-chain
+          isDelegationAnnouncedOnChain.value = false;
+          isDelegationPendingConfirmation.value = false;
+          if (selectedAddress.value) {
+            const pendingIntent = sessionStorage.getItem(`pending_delegation_${selectedAddress.value}`);
+            if (pendingIntent) {
+              showStep4IncompleteWarning.value = true;
+            }
+            // Clear stale local storage entry if account hasn't harvested and key is not hotloaded on node
+            if (lastSignedBlockHeight.value === 0 && !isKeyHotloadedOnNode.value) {
+              localStorage.removeItem(`delegated_node_${selectedAddress.value}`);
             }
           }
         }

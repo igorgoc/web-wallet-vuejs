@@ -566,6 +566,8 @@ export default {
           changeGasStrategy(ethGasStrategy.value);
           if((amount.value + gasPriceInXPX.value + txFee.value) > selectedAccount.value.balance){
             addErrorToast('Insufficient amount', 'Insufficient amount to perform swap', 5000);
+            swapInProgress.value = false;
+            isDisabledCancel.value = false;
             return;
           }
           disableTimer();

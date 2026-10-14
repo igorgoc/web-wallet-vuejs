@@ -129,27 +129,29 @@ export class AssetsUtils {
    * @param cant Quantity of zeros to add
    * @param amount Amount to add zeros
    */
-  static addZeros(cant: any, amount = 0) :number{
+  static addZeros(cant: any, amount: any = 0) :number{
     let realAmount: any;
-    if (cant > 0) {
+    const cantNum = Number(cant) || 0;
+    if (cantNum > 0) {
       let decimal: any;
-      if (amount === 0) {
-        decimal = this.addDecimals(cant);
+      if (amount === 0 || amount === '0') {
+        decimal = this.addDecimals(cantNum);
         realAmount = `0${decimal}`;
       } else {
         const arrAmount = amount.toString().replace(/,/g, '').split('.');
         if (arrAmount.length < 2) {
-          decimal = this.addDecimals(cant);
+          decimal = this.addDecimals(cantNum);
         } else {
-          const arrDecimals = arrAmount[1].split('');
-          decimal = this.addDecimals(cant - arrDecimals.length, arrAmount[1]);
+          const decimalsStr = arrAmount[1].slice(0, cantNum);
+          decimal = this.addDecimals(Math.max(0, cantNum - decimalsStr.length), decimalsStr);
         }
         realAmount = `${arrAmount[0]}${decimal}`;
       }
     } else {
-      realAmount = amount;
+      const arrAmount = amount.toString().replace(/,/g, '').split('.');
+      realAmount = arrAmount[0];
     }
-    return realAmount;
+    return Number(realAmount);
   }
 
   /**

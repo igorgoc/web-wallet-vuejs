@@ -61,7 +61,9 @@ export const copyToClipboard = (data: string): boolean => {
   } catch (err) {
     console.error(err);
   } finally {
-    document.body.removeChild(textInput);
+    if (textInput && textInput.parentNode) {
+      textInput.parentNode.removeChild(textInput);
+    }
   }
   return true;
 

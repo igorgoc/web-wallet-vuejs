@@ -1,5 +1,5 @@
 <template>
-    <img src="@/modules/dashboard/img/encrypted-icon-message.svg" v-tooltip.left="{ value: '<tiptitle>' + messageTypeTitle + '</tiptitle><tiptext>' + message + '</tiptext>', escape: false}" class=" cursor-pointer w-6 h-6" @click="showModal = true" >
+    <img src="@/modules/dashboard/img/encrypted-icon-message.svg" v-tooltip.left="{ value: '<tiptitle>' + Helper.escapeHtml(messageTypeTitle) + '</tiptitle><tiptext>' + Helper.escapeHtml(message) + '</tiptext>', escape: false}" class=" cursor-pointer w-6 h-6" @click="showModal = true" >
       <div v-if="showModal && showPassword" class="popup-outer fixed flex z-50">
         <div class="modal-popup-box ">
           <div >
@@ -103,14 +103,16 @@ const decryptMessage = () =>{
   }
   err.value = ''
   let privateKey = WalletUtils.decryptPrivateKey(Helper.createPasswordInstance(walletPassword.value), recipientAcc.value.encrypted, recipientAcc.value.iv);
-  let initiatorPublicAccount = Helper.createPublicAccount(p.initiator, AppState.networkType)
-  let decryptedMsg =EncryptedMessage.decrypt(encryptedMsg,privateKey,initiatorPublicAccount).payload
-  if(decryptedMsg=== ""){
-    err.value = "Error when trying to decrypt"
+  walletPassword.value = '';
+  let initiatorPublicAccount = Helper.createPublicAccount(p.initiator, AppState.networkType);
+  let decryptedMsg = EncryptedMessage.decrypt(encryptedMsg, privateKey, initiatorPublicAccount).payload;
+  privateKey = '';
+  if(decryptedMsg === ""){
+    err.value = "Error when trying to decrypt";
   }
   else{
-    showPassword.value=false
-    decryptedMessage.value = EncryptedMessage.decrypt(encryptedMsg,privateKey,initiatorPublicAccount).payload
+    showPassword.value = false;
+    decryptedMessage.value = decryptedMsg;
   }
 }
 

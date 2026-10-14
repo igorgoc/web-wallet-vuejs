@@ -157,9 +157,9 @@ import {
       if (!AppState.chainAPI) {
         throw new Error("Service unavailable");
       }
-      let cosignatory: PublicAccount | null = null;
       for (const cosignKey of coSign) {
-        if (cosignKey.length == 64) {
+        let cosignatory: PublicAccount | null = null;
+        if (cosignKey.length == 64 && cosignKey !== "0".repeat(64)) {
           cosignatory = PublicAccount.createFromPublicKey(
             cosignKey,
             AppState.networkType
@@ -171,10 +171,12 @@ import {
             const accInfo = await AppState.chainAPI.accountAPI.getAccountInfo(
               address
             );
-            cosignatory = PublicAccount.createFromPublicKey(
-              accInfo.publicKey,
-              AppState.networkType
-            );
+            if (accInfo.publicKey && accInfo.publicKey !== "0".repeat(64) && accInfo.publicKey.length === 64) {
+              cosignatory = PublicAccount.createFromPublicKey(
+                accInfo.publicKey,
+                AppState.networkType
+              );
+            }
           } catch (error) {
             console.log(error);
           }
@@ -424,8 +426,9 @@ import {
   
       const cosignatory: PublicAccount[] = [];
       for (const [index, cosignKey] of coSign.entries()) {
-        if (cosignKey.length == 64) {
-          cosignatory[index] = PublicAccount.createFromPublicKey(
+        let publicAccount: PublicAccount | null = null;
+        if (cosignKey.length == 64 && cosignKey !== "0".repeat(64)) {
+          publicAccount = PublicAccount.createFromPublicKey(
             cosignKey,
             AppState.networkType
           );
@@ -436,21 +439,26 @@ import {
             const accInfo = await AppState.chainAPI.accountAPI.getAccountInfo(
               address
             );
-            cosignatory[index] = PublicAccount.createFromPublicKey(
-              accInfo.publicKey,
-              AppState.networkType
-            );
+            if (accInfo.publicKey && accInfo.publicKey !== "0".repeat(64) && accInfo.publicKey.length === 64) {
+              publicAccount = PublicAccount.createFromPublicKey(
+                accInfo.publicKey,
+                AppState.networkType
+              );
+            }
           } catch (error) {
             console.log(error);
           }
         }
-  
-        multisigCosignatory.push(
-          new MultisigCosignatoryModification(
-            MultisigCosignatoryModificationType.Add,
-            cosignatory[index]
-          )
-        );
+
+        if (publicAccount) {
+          cosignatory[index] = publicAccount;
+          multisigCosignatory.push(
+            new MultisigCosignatoryModification(
+              MultisigCosignatoryModificationType.Add,
+              publicAccount
+            )
+          );
+        }
       }
   
       removeCosign.forEach((element, index) => {

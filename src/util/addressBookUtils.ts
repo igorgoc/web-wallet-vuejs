@@ -9,23 +9,25 @@ interface NetworkAddress{
 export class AddressBookUtils {
 
   static verifyNetworkAddressEqualsNetwork(currentPrimaryAdd:string, add:string):boolean {
-    if ((currentPrimaryAdd.length === 40 || currentPrimaryAdd.length === 46) && (add.length === 40 || add.length === 46)) {
-      if (currentPrimaryAdd.charAt(0) === 'S' && add.charAt(0) === 'S') {
+    const c1 = currentPrimaryAdd ? currentPrimaryAdd.trim().toUpperCase().replace(/-/g, '') : '';
+    const c2 = add ? add.trim().toUpperCase().replace(/-/g, '') : '';
+    if (c1.length === 40 && c2.length === 40) {
+      if (c1.charAt(0) === 'S' && c2.charAt(0) === 'S') {
         // NetworkType.MIJIN_TEST
         return true;
-      } else if (currentPrimaryAdd.charAt(0) === 'M' && add.charAt(0) === 'M') {
+      } else if (c1.charAt(0) === 'M' && c2.charAt(0) === 'M') {
         // NetworkType.MIJIN
         return true;
-      } else if (currentPrimaryAdd.charAt(0) === 'V' && add.charAt(0) === 'V') {
+      } else if (c1.charAt(0) === 'V' && c2.charAt(0) === 'V') {
         // NetworkType.TEST_NET
         return true;
-      } else if (currentPrimaryAdd.charAt(0) === 'X' && add.charAt(0) === 'X') {
+      } else if (c1.charAt(0) === 'X' && c2.charAt(0) === 'X') {
         // NetworkType.MAIN_NET
         return true;
-      } else if (currentPrimaryAdd.charAt(0) === 'W' && add.charAt(0) === 'W') {
+      } else if (c1.charAt(0) === 'W' && c2.charAt(0) === 'W') {
         // NetworkType.PRIVATE_TEST
         return true;
-      } else if (currentPrimaryAdd.charAt(0) === 'Z' && add.charAt(0) === 'Z') {
+      } else if (c1.charAt(0) === 'Z' && c2.charAt(0) === 'Z') {
         // NetworkType.PRIVATE
         return true;
       } else {
@@ -33,18 +35,19 @@ export class AddressBookUtils {
         return false;
       }
     }
+    return false;
   }
 
   static verifyNetworkAddress(currentAdd:string, add:string): NetworkAddress {
-    const address = (add !== undefined && add !== null && add !== '') ? add.split('-').join('') : '';
+    const address = (add !== undefined && add !== null && add !== '') ? add.trim().replace(/-/g, '') : '';
 
     let verification: NetworkAddress = {
       isPassed: false,
       errMessage: ''
     };
 
-    if (address !== null && address !== undefined && address.length === 40) {
-      if(this.verifyNetworkAddressEqualsNetwork(currentAdd, add.toUpperCase())){
+    if (address.length === 40) {
+      if(this.verifyNetworkAddressEqualsNetwork(currentAdd, address)){
         verification.isPassed =  true;
       }else{
         verification.isPassed = false;

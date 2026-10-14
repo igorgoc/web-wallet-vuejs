@@ -800,11 +800,15 @@ export default {
           if(selectedToken.value.name=='xpx'){
             if((amount.value + gasPriceInXPX.value + txFee.value) > selectedAccount.value.balance){
               addErrorToast(t('swap.insufficientAmount'), t('swap.swapInsufficientAmount'), 5000);
+              swapInProgress.value = false;
+              isDisabledCancel.value = false;
               return;
             }
           }else{
             if((gasPriceInXPX.value + txFee.value) > selectedAccount.value.balance){
               addErrorToast(t('swap.insufficientAmount'), t('swap.swapInsufficientAmount'), 5000);
+              swapInProgress.value = false;
+              isDisabledCancel.value = false;
               return;
             }
           }
@@ -816,8 +820,14 @@ export default {
               callSwapServer(signedTransaction.payload);
             }else{
               addErrorToast('Swap Server Error', 'Insufficient Balance from Funding Account', 5000);
+              swapInProgress.value = false;
+              isDisabledCancel.value = false;
             }
-          })
+          }).catch(()=>{
+            addErrorToast('Swap Server Error', 'Failed to check funding account balance', 5000);
+            swapInProgress.value = false;
+            isDisabledCancel.value = false;
+          });
           
         } else {
           err.value = t('general.walletPasswordInvalid',{name: walletState.currentLoggedInWallet.name});
