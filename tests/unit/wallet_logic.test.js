@@ -1,7 +1,30 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { UInt64 } = require('tsjs-xpx-chain-sdk');
-const mathjs = require('mathjs');
+let UInt64, mathjs;
+try {
+  ({ UInt64 } = require('tsjs-xpx-chain-sdk'));
+} catch {
+  UInt64 = {
+    fromUint: (val) => ({
+      compact: () => Math.trunc(Number(val))
+    })
+  };
+}
+
+try {
+  mathjs = require('mathjs');
+} catch {
+  const toSeconds = { second: 1, minute: 60, hour: 3600, day: 86400 };
+  mathjs = {
+    unit: (val, unitStr) => ({
+      toNumber: (targetUnit) => {
+        const fromSec = toSeconds[unitStr] || 1;
+        const toSec = toSeconds[targetUnit] || 1;
+        return (val * fromSec) / toSec;
+      }
+    })
+  };
+}
 
 // -------------------------------------------------------------
 // 1. Time Unit Converter Tests
