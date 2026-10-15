@@ -9,6 +9,7 @@ import {
   PublicAccount,
   Password,
   Message,
+  NetworkType,
 } from "tsjs-xpx-chain-sdk";
 
 import { networkState } from "@/state/networkState";
@@ -21,23 +22,26 @@ import { TransactionUtils } from "./transactionUtils";
 
 
 const test_publicKey = "0".repeat(64)
-const test_address = PublicAccount.createFromPublicKey(test_publicKey, AppState.networkType).address.plain()
+const getTestAddress = (): string => {
+  return PublicAccount.createFromPublicKey(test_publicKey, AppState.networkType || NetworkType.MAIN_NET).address.plain();
+}
 
 const getMosaic = (amount: string, mosaic: { id: string, amount: string }[]): Mosaic[] => {
   let mosaics: Mosaic[] = []
-  if (parseInt(amount) > 0) {
-    mosaics.push(new Mosaic(new MosaicId(AppState.nativeToken.assetId), UInt64.fromUint(Number(amount))));
+  let nativeAmt = Math.round((parseFloat(amount) || 0) * Math.pow(10, AppState.nativeToken.divisibility));
+  if (nativeAmt > 0) {
+    mosaics.push(new Mosaic(new MosaicId(AppState.nativeToken.assetId || "0".repeat(16)), UInt64.fromUint(nativeAmt)));
   }
   if (mosaic.length > 0) {
     mosaic.forEach((mosaicSentInfo) => {
-      if (parseInt(mosaicSentInfo.amount) > 0) {
+      let parsed = parseFloat(mosaicSentInfo.amount) || 0;
+      if (parsed > 0) {
         mosaics.push(
           new Mosaic(
             new MosaicId(mosaicSentInfo.id),
-            UInt64.fromUint(Number(mosaicSentInfo.amount)))
+            UInt64.fromUint(Math.round(parsed)))
         )
       }
-
     })
   }
   return mosaics
@@ -59,7 +63,7 @@ export class TransferUtils {
 
     let networkType = AppState.networkType
 
-    let xpxAmount = parseFloat(nativeTokenAmount) * Math.pow(10, AppState.nativeToken.divisibility);
+    let xpxAmount = Math.round((parseFloat(nativeTokenAmount) || 0) * Math.pow(10, AppState.nativeToken.divisibility));
 
     let mosaics = [];
     if (xpxAmount > 0) {
@@ -71,7 +75,7 @@ export class TransferUtils {
           mosaics.push(
             new Mosaic(
               new MosaicId(mosaicSentInfo.id),
-              UInt64.fromUint(Number(mosaicSentInfo.amount * Math.pow(10, mosaicSentInfo.divisibility)))
+              UInt64.fromUint(Math.round(Number(mosaicSentInfo.amount * Math.pow(10, mosaicSentInfo.divisibility))))
             )
           );
         }
@@ -143,7 +147,7 @@ export class TransferUtils {
     let transactionBuilder = AppState.buildTxn
     let mosaics = getMosaic(amount, mosaic)
     let transferTransaction = transactionBuilder.transferBuilder()
-      .recipient(Address.createFromRawAddress(test_address))
+      .recipient(Address.createFromRawAddress(getTestAddress()))
       .mosaics(mosaics)
       .message(isEncrypted && message.length>0? EncryptedMessage.create(message, PublicAccount.createFromPublicKey('0'.repeat(64), AppState.networkType), '0'.repeat(64)) : PlainMessage.create(message))
       .build()
@@ -159,7 +163,7 @@ export class TransferUtils {
     let transactionBuilder = AppState.buildTxn
     let mosaics = getMosaic(amount, mosaic)
     let transferTransaction = transactionBuilder.transferBuilder()
-      .recipient(Address.createFromRawAddress(test_address))
+      .recipient(Address.createFromRawAddress(getTestAddress()))
       .mosaics(mosaics)
       .message(isEncrypted && message.length>0?  EncryptedMessage.create(message, PublicAccount.createFromPublicKey('0'.repeat(64), AppState.networkType), '0'.repeat(64)) : PlainMessage.create(message))
       .build()

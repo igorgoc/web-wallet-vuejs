@@ -105,6 +105,8 @@ import { useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
+import { WalletStateUtils } from "@/state/utils/walletStateUtils";
+import { AppStateUtils } from "@/state/utils/appStateUtils";
 
 const { t } = useI18n();
 const toggleModal = ref(false);
@@ -136,7 +138,8 @@ const clearInput = () => {
 };
 
 const logout = () => {
-  walletState.isLogin = false;
+  WalletStateUtils.doLogout();
+  AppStateUtils.doLogout();
   router.push({ name: "Home" });
 };
 

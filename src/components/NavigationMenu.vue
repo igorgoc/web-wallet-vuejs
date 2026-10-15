@@ -139,12 +139,17 @@
 import { useSidebar } from "@/composables/useSidebar";
 import router from "@/router";
 import { walletState } from "@/state/walletState";
+import { WalletStateUtils } from "@/state/utils/walletStateUtils";
+import { AppStateUtils } from "@/state/utils/appStateUtils";
+import { ListenerStateUtils } from "@/state/utils/listenerStateUtils";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 const { isOpen } = useSidebar();
 
 const signOut = () => {
-  walletState.isLogin = false;
+  WalletStateUtils.doLogout();
+  AppStateUtils.doLogout();
+  ListenerStateUtils.reset();
   router.push({ name: "Home" });
   isOpen.value = false;
 };

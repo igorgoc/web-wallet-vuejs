@@ -196,7 +196,7 @@ export class BuildTransactions {
             .deadline(Deadline.create())
             .duration(duration)
             .mosaic(mosaic)
-            .transactionHash(transactionHash)
+            .transactionHash(transactionHashToUse)
             .build();
     }
 

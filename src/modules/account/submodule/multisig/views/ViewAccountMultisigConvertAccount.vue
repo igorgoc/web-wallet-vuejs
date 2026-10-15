@@ -549,9 +549,9 @@ export default {
         if (!AppState.chainAPI) {
           throw new Error("Service unavailable");
         }
-        let cosignatory = null;
         for (const cosignKey of coSign.value) {
-          if (cosignKey.length == 64) {
+          let cosignatory = null;
+          if (cosignKey.length == 64 && cosignKey !== "0".repeat(64)) {
             cosignatory = PublicAccount.createFromPublicKey(
               cosignKey,
               AppState.networkType
@@ -563,10 +563,12 @@ export default {
               const accInfo = await AppState.chainAPI.accountAPI.getAccountInfo(
                 address
               );
-              cosignatory = PublicAccount.createFromPublicKey(
-                accInfo.publicKey,
-                AppState.networkType
-              );
+              if (accInfo.publicKey && accInfo.publicKey !== "0".repeat(64) && accInfo.publicKey.length === 64) {
+                cosignatory = PublicAccount.createFromPublicKey(
+                  accInfo.publicKey,
+                  AppState.networkType
+                );
+              }
             } catch (error) {
               console.log(error);
             }
